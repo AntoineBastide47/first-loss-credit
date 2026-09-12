@@ -29,6 +29,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   acceptedCredential, readPermissionedDomain).
 - `lib/mpt.mjs` — phase-agnostic XLS-33 MPT builders (createMptIssuance, authorizeMpt,
   readMptIssuance, readMptoken, mptBalance, isMptAuthorized) + flag enum re-export.
+- `lib/escrow.mjs` — phase-agnostic XLS-85 TokenEscrow builders (makeCondition for a
+  dependency-free PREIMAGE-SHA-256 condition/fulfillment, createEscrow capturing the create
+  Sequence, escrowFinishTx, escrowCancelTx).
 - `part-1/` — Part 1 (Vanilla), all verified live on-chain:
   - `1.1_vault_lifecycle_and_yield.mjs` — vault lifecycle + real yield.
   - `1.2_broker_and_first_loss_cover.mjs` — broker + first-loss cover minimum.
@@ -51,6 +54,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
     deposit/withdraw round-trip; explicit Scale on an MPT asset rejected client-side.
   - `3.3_mpt_loan_flow.mjs` — full loan (originate + repay) in an MPT vault; PrincipalRequested
     string vs LoanPay MPT-amount object; payment must round UP to a whole base unit.
+- `part-4/` — Part 4 (TokenEscrow collateral), verified live on-chain:
+  - `4.1_token_escrow_basics.mjs` — MPT escrow: lock, finish to destination (crypto-condition),
+    cancel back to owner; early finish tecNO_PERMISSION, wrong fulfillment tecCRYPTOCONDITION_ERROR.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
@@ -63,6 +69,12 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   `LoanPay` fails `tecINSUFFICIENT_PAYMENT` (verified 3.3), unlike the XRP drops case below.
 - `VaultWithdraw` with the **share MPT** amount redeems all shares (full value); a bare asset
   amount withdraws assets and leaves yield behind.
+- MPToken balance model (verified 4.1): `MPTAmount` is the **spendable** balance; `LockedAmount`
+  is the escrow-locked amount, still owned but not spendable. They are additive (total owned =
+  `MPTAmount + LockedAmount`), so do **not** subtract `LockedAmount` from `MPTAmount`.
+- Token escrow (verified 4.1): MPT escrow between non-issuers needs `tfMPTCanEscrow` +
+  `tfMPTCanTransfer`. `EscrowFinish` before `FinishAfter` → `tecNO_PERMISSION`; a wrong
+  `Fulfillment` → `tecCRYPTOCONDITION_ERROR`. `EscrowCreate` has no `Data` field.
 - Default recovery (verified): `DefaultCovered = min(DebtTotal * CoverRateMinimum *
   CoverRateLiquidation, DefaultAmount, CoverAvailable)`; cover moves to the vault and the residual
   is a realized `AssetsTotal` loss. After default, `CoverAvailable`/`DebtTotal` may read absent
