@@ -3,6 +3,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
 
+  // apps/web (Next.js) also defaults to :3000; give this app its own port so a
+  // root `pnpm dev` (which starts both via turbo) never has them race for :3000.
+  devServer: { port: 3010 },
+
   modules: ['@nuxtjs/tailwindcss'],
 
   css: ['~/assets/css/main.css'],

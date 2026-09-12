@@ -52,6 +52,17 @@ export function utilisation(vault) {
   return ratioString(total - big(vault.AssetsAvailable), total, 6);
 }
 
+/**
+ * Assets redeemable now for `shares` shares: shares * (AssetsTotal - LossUnrealized) /
+ * OutstandingShares (BigInt, base-unit drops). 0 when the vault has no shares.
+ */
+export function redeemableAssets(vault, shares) {
+  const sharesTotal = big(vault.shares?.OutstandingAmount);
+  if (sharesTotal === 0n) return 0n;
+  const net = big(vault.AssetsTotal) - big(vault.LossUnrealized);
+  return (big(shares) * net) / sharesTotal;
+}
+
 /** Minimum cover required now: DebtTotal * CoverRateMinimum / 100000 (BigInt). */
 export function requiredCover(broker) {
   return (big(broker.DebtTotal) * big(broker.CoverRateMinimum)) / 100000n;
