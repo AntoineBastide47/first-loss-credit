@@ -27,6 +27,8 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 - `lib/credentials.mjs` — phase-agnostic XLS-70/80 membership builders (createCredential,
   acceptCredential, issueAcceptedCredential, readCredential, isAccepted, setPermissionedDomain,
   acceptedCredential, readPermissionedDomain).
+- `lib/mpt.mjs` — phase-agnostic XLS-33 MPT builders (createMptIssuance, authorizeMpt,
+  readMptIssuance, readMptoken, mptBalance, isMptAuthorized) + flag enum re-export.
 - `part-1/` — Part 1 (Vanilla), all verified live on-chain:
   - `1.1_vault_lifecycle_and_yield.mjs` — vault lifecycle + real yield.
   - `1.2_broker_and_first_loss_cover.mjs` — broker + first-loss cover minimum.
@@ -42,6 +44,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   - `2.3_gated_private_vault.mjs` — tfVaultPrivate vault bound to a domain; member deposit
     succeeds, outsider and unaccepted-credential holder rejected with tecNO_AUTH. Protocol
     gates depositors/share holders only, not borrowers.
+- `part-3/` — Part 3 (MPTs), verified live on-chain:
+  - `3.1_mpt_issuance.mjs` — MPTokenIssuanceCreate (CanTransfer + RequireAuth + CanEscrow);
+    two-step auth (holder opt-in + issuer authorize); positive balance only after both steps.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
