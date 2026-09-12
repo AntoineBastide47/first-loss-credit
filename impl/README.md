@@ -13,14 +13,17 @@ Override with env vars: `XRPL_WSS`, `XRPL_FAUCET`, `XRPL_EXPLORER`.
 
 ## Run
 ```sh
-pnpm install --filter first-loss-credit-impl   # links xrpl + ripple-keypairs from the store
+pnpm install --filter first-loss-credit-impl   # links xrpl@5.2.0-beta.1 from the store
 node part-1/1.1_vault_lifecycle_and_yield.mjs
 ```
 
 ## Layout
-- `lib/index.mjs` — shared, non-phase helpers (connect, fundAccounts, submitAndWait,
-  submitExpectingFailure, submitSignedExpectingFailure, signLoanSetCounterparty,
-  roundUpToAssetUnit, waitUntilAfter, ledger reads, explorer, logFriction).
+- `lib/index.mjs` — generic XRPL primitives (connect, fundAccounts, submitAndWait,
+  submitExpectingFailure, submitSignedExpectingFailure, roundUpToAssetUnit, waitUntilAfter,
+  ledger reads, explorer, logFriction).
+- `lib/lending.mjs` — phase-agnostic protocol builders (createVault, vaultDeposit, createBroker,
+  depositCover, signedLoanSet, originateLoan) + metadata/run-log helpers. Phases compose these;
+  no phase re-implements setup and no phase imports another phase.
 - `part-1/` — Part 1 (Vanilla), all verified live on-chain:
   - `1.1_vault_lifecycle_and_yield.mjs` — vault lifecycle + real yield.
   - `1.2_broker_and_first_loss_cover.mjs` — broker + first-loss cover minimum.
@@ -30,8 +33,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
-- `signLoanSetByCounterparty` (xrpl@5.1.0) signs with the wrong hash prefix (`STX`); this build
-  verifies with `CPT` (`CounterpartyTxSign`). `signLoanSetCounterparty` swaps the prefix.
+- LoanSet counterparty signing needs the `CPT` (`CounterpartyTxSign`) hash prefix, which this
+  build verifies against. `xrpl@5.2.0-beta.1`'s `signLoanSetByCounterparty` produces it
+  (`5.1.0` used the wrong `STX` prefix and was rejected).
 - Interest is **cash-basis** (`LendingProtocolV1_1`): recognized on `LoanPay`, not at origination.
 - Loan payment fields are already in the asset base unit (drops) with a fraction; round **up** to
   the next integer.

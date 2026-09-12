@@ -279,12 +279,9 @@ importers:
 
   impl:
     dependencies:
-      ripple-keypairs:
-        specifier: ^3.0.0
-        version: 3.0.0
       xrpl:
-        specifier: ^5.1.0
-        version: 5.1.0
+        specifier: 5.2.0-beta.1
+        version: 5.2.0-beta.1
 
   packages/create-xrp:
     dependencies:
@@ -5298,6 +5295,10 @@ packages:
     resolution: {integrity: sha512-H4pBm2WdOMmVnA0HGUdWAShmUFdmqavWAsi2WlMCzOknc1XjrZssa/RxEyziaPww8MXe1OpgGU7uCs8G2nYe/A==}
     engines: {node: '>= 18'}
 
+  ripple-binary-codec@2.11.0-beta.1:
+    resolution: {integrity: sha512-3yDr5Etxx4GInZ1eMI8SqZx+sAskABXf1vbXGF/Zj+pR1Do1464VCyTlgvYQQ9YwMUDOHm9jG3YCeQOSczKL8Q==}
+    engines: {node: '>= 18'}
+
   ripple-keypairs@3.0.0:
     resolution: {integrity: sha512-lE69pD0E8hFNCqZoVXRyY45Yi8Ku+Qw7Rf1qRwPj4nOi34vp9NAuwzfiJH1IwXGWNCfEkwVfctG99CPTEoUf+g==}
     engines: {node: '>= 18'}
@@ -6330,6 +6331,10 @@ packages:
 
   xrpl@5.1.0:
     resolution: {integrity: sha512-wYTiyrFqV22kwSX2lrUCD10Ns8Zyv2zz8rZ2Pi0KOVm5Sc7/8m7rrca2dAZy1vGhOt36tkvWyX4aC2SQveyT9w==}
+    engines: {node: '>=20.19.0'}
+
+  xrpl@5.2.0-beta.1:
+    resolution: {integrity: sha512-LWqlOEd1QKCDnX2RsJQZsvgrblsZ+NlsdpcIh0c2foP3Sye1d7n57bnhCVw6PjyvjR6vYKBuwbcNSXn8unLyWA==}
     engines: {node: '>=20.19.0'}
 
   y18n@5.0.8:
@@ -12012,6 +12017,15 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  ripple-binary-codec@2.11.0-beta.1:
+    dependencies:
+      '@xrplf/isomorphic': 1.0.2
+      bignumber.js: 10.0.2
+      ripple-address-codec: 5.0.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   ripple-keypairs@3.0.0:
     dependencies:
       '@noble/curves': 2.4.0
@@ -13237,6 +13251,23 @@ snapshots:
       fast-json-stable-stringify: 2.1.0
       ripple-address-codec: 5.0.1
       ripple-binary-codec: 2.10.0
+      ripple-keypairs: 3.0.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  xrpl@5.2.0-beta.1:
+    dependencies:
+      '@scure/bip32': 2.4.0
+      '@scure/bip39': 2.4.0
+      '@xrplf/isomorphic': 1.0.2
+      '@xrplf/mpt-crypto': 0.1.1
+      '@xrplf/secret-numbers': 3.0.0
+      bignumber.js: 10.0.2
+      eventemitter3: 5.0.4
+      fast-json-stable-stringify: 2.1.0
+      ripple-address-codec: 5.0.1
+      ripple-binary-codec: 2.11.0-beta.1
       ripple-keypairs: 3.0.0
     transitivePeerDependencies:
       - bufferutil

@@ -47,21 +47,22 @@ const wallet = Wallet.fromSeed(account.secret); // then poll account_info until 
 ```
 
 ## Library versions (verified)
-- **xrpl.js**: Vault (XLS-65) support from 4.4.0, Loan (XLS-66) from 4.5.0, `LoanSet`
-  counterparty-signing helpers from 4.6.0. Latest 5.2.0. `xrpl@^5.1.0` covers the transaction
-  types — but see the counterparty-signing bug below.
+- **xrpl.js**: Vault (XLS-65) from 4.4.0, Loan (XLS-66) from 4.5.0, `LoanSet` counterparty-signing
+  helpers from 4.6.0. **Use `5.2.0-beta.1`** (dist-tag `beta-experimental`) for this devnet — it
+  fixes the counterparty-signing prefix (below). `5.1.0`/`5.2.0` have the transaction types but
+  sign the counterparty signature with the wrong prefix.
 - **xrpl-py**: Vault from 4.2.0, Loan from 4.4.0, counterparty helpers from 4.5.0. Use ≥ 4.5.0.
 - **xrpl-connect** (wallet adapter): `^0.8.2` is current stable; a 1.0.0-rc exists.
 
-## Known SDK bug: LoanSet counterparty signing (xrpl.js 5.1.0)
-`signLoanSetByCounterparty` signs the counterparty signature with the standard transaction hash
-prefix `STX`. This rippled build verifies the counterparty signature with a **distinct prefix
-`CPT` (`HashPrefix::CounterpartyTxSign`)**, so the SDK-built signature is rejected with local
-error "Counterparty: Invalid signature". Until a fixed xrpl.js is confirmed, build the counterparty
-signature manually: take `encodeForSigning(tx)` (the first party must have signed already), replace
-the leading 4-byte prefix `53545800` with `43505400`, sign that with the counterparty key, and set
-`CounterpartySignature = { SigningPubKey, TxnSignature }`. The transaction `Account` signs first;
-the `Counterparty` adds the second signature.
+## LoanSet counterparty signing (fixed in xrpl.js 5.2.0-beta.1)
+This rippled build verifies the LoanSet counterparty signature with a **distinct hash prefix
+`CPT` (`HashPrefix::CounterpartyTxSign`)**, not the standard `STX`. `xrpl.js` ≤ 5.2.0 signed with
+`STX`, so `signLoanSetByCounterparty` was rejected with local error "Counterparty: Invalid
+signature". **`5.2.0-beta.1`** adds a `counterparty` signing role that uses the `CPT` prefix, so
+the helper now works: the transaction `Account` signs first, then
+`signLoanSetByCounterparty(counterpartyWallet, signedBlob)` adds the `CounterpartySignature`. On an
+older xrpl.js the workaround is to re-sign `encodeForSigning(tx)` with the leading `53545800`
+swapped for `43505400`.
 
 ## The RLUSD caveat
 RLUSD test tokens are issued on **Testnet only** (issuer `rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV`),

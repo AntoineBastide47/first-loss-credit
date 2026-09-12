@@ -4,46 +4,66 @@ XRPL Lending Protocol Hackathon. Track 1 (open-ended Single Asset Vault, merged 
 Use case: institutional term credit where a junior provider posts first-loss capital and
 senior lenders are protected.
 
-Five parts:
+Six parts. Parts 1-5 are backend/protocol flows; Part 6 is the UI, independent of them and
+**built in parallel** (see below).
 
 | Part | Theme | Status |
 |------|-------|--------|
-| [part-1](part-1-vanilla-first-loss-credit/) | Vanilla: XLS-65 + XLS-66 core credit flow | Verified vs merged spec + xrpl@5.1.0 |
-| [part-2](part-2-permissioned-domains-credentials/) | Loaded: Permissioned Domains + Credentials (gate depositors) | Verified vs merged spec + xrpl@5.1.0 |
-| [part-3](part-3-mpts/) | Loaded: MPT-denominated vault and loan | Verified vs merged spec + xrpl@5.1.0 |
-| [part-4](part-4-token-escrow-collateral/) | Loaded: TokenEscrow collateral (application-enforced) | Verified vs merged spec + xrpl@5.1.0 |
+| [part-1](part-1-vanilla-first-loss-credit/) | Vanilla: XLS-65 + XLS-66 core credit flow | **Implemented + verified live** (`impl/`, xrpl@5.2.0-beta.1) |
+| [part-2](part-2-permissioned-domains-credentials/) | Loaded: Permissioned Domains + Credentials (gate depositors) | Verified vs merged spec + xrpl models |
+| [part-3](part-3-mpts/) | Loaded: MPT-denominated vault and loan | Verified vs merged spec + xrpl models |
+| [part-4](part-4-token-escrow-collateral/) | Loaded: TokenEscrow collateral (application-enforced) | Verified vs merged spec + xrpl models |
 | [part-5](part-5-sponsored-fees-reserves/) | Loaded: sponsored fees/reserves | Mechanism UNVERIFIED |
+| [part-6](part-6-ui/) | UI: browser consoles + risk monitor over the live devnet | Planned; independent of parts 1-5, parallelizable |
 
-Status means the transaction shapes and rules were checked against the merged XLS specs and
-the installed `xrpl@5.1.0` models. Live behavior is **not** verified (see endpoint caveat).
+For parts 2-5, "Verified" means the transaction shapes and rules were checked against the merged
+XLS specs and the xrpl.js models; live behavior is confirmed only where Part 1 exercised the same
+primitive. Part 6 depends only on `lib/` and live reads, so it can proceed while the next backend
+part is in progress; it surfaces live features and mocks not-yet-built ones behind a flag.
 
 ## Global conventions (every phase obeys these)
 
 ### Independence contract
+Independent **phases**, not duplicated **code**. The two are separate:
 - A **phase** is one numbered subsection (e.g. `1.3`). Each phase file is a complete,
   standalone runnable spec.
-- A phase **builds every precondition it needs** (accounts, assets, vault, broker, loan,
-  escrow) and **reads no other phase's runtime state**. No phase consumes another phase's
-  output.
-- A `see 1.X` / `inline as in 3.1` reference points to a **documented procedure to
-  reproduce**, never to another phase's runtime state or output. Reproduce the steps locally.
-- Parts are also independent: Part 4 does not import Parts 1-3.
-- The **only** shared code is a non-phase `lib/` (below) and the SDK shapes here. A library
-  and a shared reference are infrastructure, not a dependency on another phase's work.
+- **Phase independence** means a phase **does not reference any other phase and does not depend
+  on a future phase**. It reads no other phase's runtime state and consumes no other phase's
+  output. (Ex: phase 3 must not depend on phase 5; phase 4 need not know phases 1-3 exist.)
+- A phase **builds the preconditions it needs** (accounts, assets, vault, broker, loan, escrow)
+  by **composing the shared `lib/` builders** — never by copying another phase's code. Common
+  setup is written **once** in `lib/` and called by every phase that needs it. Independent
+  phases may share common code; they must not depend on one another.
+- A `see 1.X` reference points to a **shared procedure realized in `lib/`**, not to another
+  phase's runtime state or output. "Reproduce" means "call the shared builder", not "re-implement".
+- Parts are also independent: no part imports another part; all depend only on `lib/`.
+- The shared, non-phase `lib/` (below) and the SDK shapes here are the only common code —
+  infrastructure, not a dependency on another phase's work.
 
 ### Shared `lib/` (not a phase)
-Every phase may call these helpers; none is phase-specific:
+Every phase may call these; none is phase-specific. Two modules:
+
+**`lib/index.mjs` — generic XRPL primitives**
 - `connect()` — open a client to the lending hackathon devnet WebSocket and assert the XLS-65/66
   amendments are enabled.
-- `fundAccounts(n)` — create and fund `n` accounts, wait for validation.
-- `submitAndWait(tx, wallet, extraSigners?)` — autofill, sign, submit, wait for a
-  **validated** ledger, return the metadata.
-- `waitLedgers(n)` — advance `n` validated ledgers (timing tests).
-- `roundUpToAssetUnit(value, asset)` — round a high-precision loan figure **up** to the
-  asset base unit (drops for XRP, `10^-AssetScale` for MPT).
-- `readVault(vaultId)` / `readLoanBroker(id)` / `readLoan(id)` — fetch the ledger object.
-- `explorer(txHashOrAccount)` — return an explorer URL for the run log.
-- `logFriction(entry)` — append a structured note for the DevEx report.
+- `fundAccounts(n)` — create and fund `n` accounts (hackathon faucet), wait for validation.
+- `submitAndWait(tx, wallet)` — autofill, sign, submit, wait for a **validated** ledger, return
+  the metadata. `submitExpectingFailure` / `submitSignedExpectingFailure` — same but return the
+  engine code without throwing (for guardrail negative controls).
+- `waitLedgers(n)` / `waitUntilAfter(rippleTime)` — advance ledgers / wait past a ledger close
+  time (timing tests).
+- `roundUpToAssetUnit(value)` — round a high-precision loan figure **up** to the whole asset base
+  unit (loan fields are already base-unit denominated; this is a ceil-to-integer).
+- `readVault(vaultId)` / `readLedgerEntry(index)` — fetch the ledger object.
+- `explorer(txHashOrAccount)` / `logFriction(entry)`.
+
+**`lib/lending.mjs` — phase-agnostic protocol builders** (so no phase re-implements setup)
+- `createVault(owner, opts)`, `vaultDeposit(lender, vaultId, amount)`,
+  `createBroker(owner, vaultId, opts)`, `depositCover(owner, brokerId, amount)`.
+- `signedLoanSet(...)` / `originateLoan(...)` — build the dual-signed LoanSet (borrower signs,
+  owner counter-signs via xrpl.js `signLoanSetByCounterparty`) and optionally submit it.
+- `createdIndex` / `createdFields` / `balanceChange` / `big` / `assert` / `makeRecorder` /
+  `shareBalance` — shared metadata and run-log helpers.
 
 ### Endpoint (verified live 2026-09-12)
 - **WebSocket:** `wss://lending-hackathon.dev.ripplex.io:51233` (build `3.4.0-rc1`, network
@@ -56,9 +76,10 @@ Every phase may call these helpers; none is phase-specific:
 - Amendments enabled: `SingleAssetVault`, `LendingProtocol`, `LendingProtocolV1_1`,
   `PermissionedDomains`, `TokenEscrow`, `MPTokensV1`, `DynamicMPT`. The old
   `lend.devnet.rippletest.net` host does not resolve; do not use it.
-- `xrpl` resolves to `5.1.0` locally; Vault (4.4.0+) and Loan (4.5.0+) types are present, but
-  `signLoanSetByCounterparty` is **broken** against this build (wrong signing prefix — see
-  SDK shapes). Do not run against Mainnet.
+- Use **`xrpl@5.2.0-beta.1`**: it adds the `counterparty` signing role so
+  `signLoanSetByCounterparty` produces the `CPT`-prefix signature this build requires. (`5.1.0`
+  has the Vault/Loan types but signs the counterparty signature with the wrong prefix.) Do not
+  run against Mainnet.
 
 ### Cross-cutting protocol rules
 - **Interest is cash-basis on this build (`LendingProtocolV1_1`), verified in 1.1.** At
@@ -79,12 +100,12 @@ Every phase may call these helpers; none is phase-specific:
 ### SDK shapes (xrpl@5.1.0; ✅ = verified live on the hackathon devnet in 1.1)
 - ✅ **Vault owner = broker owner.** Only `Vault.Owner` can `LoanBrokerSet`; any other account
   gets `tecNO_PERMISSION`. The account that creates the vault must create the broker.
-- ✅ **LoanSet counterparty signing — `signLoanSetByCounterparty` is broken here.** It signs with
-  the standard `STX` prefix, but this rippled verifies the counterparty signature with the
-  `CPT` (`CounterpartyTxSign`) prefix, so it is rejected locally as "Counterparty: Invalid
-  signature". Work around it: `Account` signs first, then take `encodeForSigning(tx)`, replace
-  the leading `53545800` with `43505400`, sign with the counterparty key, and set
-  `CounterpartySignature = { SigningPubKey, TxnSignature }`. (`lib/signLoanSetCounterparty`.)
+- ✅ **LoanSet counterparty signing — use `xrpl@5.2.0-beta.1`.** This rippled verifies the
+  counterparty signature with the `CPT` (`CounterpartyTxSign`) prefix. `xrpl@5.1.0`'s
+  `signLoanSetByCounterparty` signed with the standard `STX` prefix and was rejected locally as
+  "Counterparty: Invalid signature"; `5.2.0-beta.1` adds a `counterparty` signing role that uses
+  the `CPT` prefix, so the SDK helper now works. `Account` (borrower) signs first, then
+  `signLoanSetByCounterparty(owner, blob)` adds the `CounterpartySignature`. (`lib/lending.signedLoanSet`.)
 - ✅ **VaultWithdraw `Amount` selects what you redeem.** A bare asset amount (XRP drops) withdraws
   that many **assets** and leaves yield behind. To redeem **all shares** and receive their full
   value, pass the **share MPT** amount `{ mpt_issuance_id: ShareMPTID, value: shares }`.

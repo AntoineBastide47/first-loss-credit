@@ -6,8 +6,7 @@
 // MPTokensV1) are all enabled (verified 2026-09-12: build 3.4.0-rc1, network
 // 4001, reserves 10/2 XRP). Override with XRPL_WSS / XRPL_FAUCET.
 
-import { Client, Wallet, dropsToXrp, encode, decode, encodeForSigning } from "xrpl";
-import { sign as keypairSign } from "ripple-keypairs";
+import { Client, Wallet, dropsToXrp } from "xrpl";
 
 export const NETWORK = {
   wss: process.env.XRPL_WSS || "wss://lending-hackathon.dev.ripplex.io:51233",
@@ -99,41 +98,6 @@ export async function submitAndWait(client, tx, wallet) {
     throw new SubmitError(tx.TransactionType, code, res.result.hash, res);
   }
   return { hash: res.result.hash, meta: res.result.meta, result: res.result };
-}
-
-// HashPrefix values (4 bytes each) used as the first word of the signing data.
-const STX_PREFIX = "53545800"; // 'S','T','X',0 — standard single-sig (HashPrefix::TxSign)
-const CPT_PREFIX = "43505400"; // 'C','P','T',0 — counterparty (HashPrefix::CounterpartyTxSign)
-
-/**
- * Add a LoanSet CounterpartySignature.
- *
- * rippled verifies this signature over CounterpartyTxSign('CPT') || tx-without-
- * signature-fields. xrpl@5.1.0's signLoanSetByCounterparty signs with the standard
- * 'STX' prefix, which the hackathon rippled (3.4.0-rc1) rejects as an invalid
- * signature. This helper reuses encodeForSigning (identical body) and swaps only
- * the 4-byte prefix, so it matches rippled exactly.
- *
- * `firstPartySigned` is the LoanSet already signed by Account (blob or object).
- */
-export function signLoanSetCounterparty(firstPartySigned, counterpartyWallet) {
-  const obj = typeof firstPartySigned === "string" ? decode(firstPartySigned) : { ...firstPartySigned };
-  if (!obj.SigningPubKey || !obj.TxnSignature) {
-    throw new Error("signLoanSetCounterparty: Account must sign before the counterparty");
-  }
-  if (obj.CounterpartySignature) {
-    throw new Error("signLoanSetCounterparty: already counterparty-signed");
-  }
-  const stdHex = encodeForSigning(obj);
-  if (!stdHex.startsWith(STX_PREFIX)) {
-    throw new Error(`signLoanSetCounterparty: unexpected signing prefix ${stdHex.slice(0, 8)}`);
-  }
-  const cptHex = CPT_PREFIX + stdHex.slice(STX_PREFIX.length);
-  obj.CounterpartySignature = {
-    SigningPubKey: counterpartyWallet.publicKey,
-    TxnSignature: keypairSign(cptHex, counterpartyWallet.privateKey),
-  };
-  return { tx_blob: encode(obj), tx: obj };
 }
 
 /** Raised on a non-success engine result so callers can assert exact codes. */

@@ -12,7 +12,6 @@
     "1.5": "node part-1/1.5_guardrail_gallery.mjs"
   },
   "dependencies": {
-    "ripple-keypairs": "^3.0.0",
-    "xrpl": "^5.1.0"
+    "xrpl": "5.2.0-beta.1"
   }
 }
