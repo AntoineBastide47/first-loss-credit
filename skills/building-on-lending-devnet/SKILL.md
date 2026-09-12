@@ -1,56 +1,90 @@
 ---
 name: building-on-lending-devnet
-description: "Set up the environment to build on the XRPL Lending Protocol (XLS-65/66): Lending-Devnet endpoints, xrpl.js and xrpl-py versions, the accounts a lending flow needs, and the RLUSD network caveat. Use when configuring a client, choosing a library version, funding accounts, or wiring a vault/lending project to a network."
+description: "Set up the environment to build on the XRPL Lending Protocol (XLS-65/66): the Lending Hackathon devnet endpoints, faucet shape, xrpl.js and xrpl-py versions, a known counterparty-signing SDK bug, the accounts a lending flow needs, and the RLUSD network caveat. Use when configuring a client, choosing a library version, funding accounts, or wiring a vault/lending project to a network."
 allowed-tools: Read Bash WebFetch
 ---
 
-# Building on XRPL Lending-Devnet
+# Building on the XRPL Lending Hackathon devnet
 
-The XLS-65/66 amendment is enabled on a dedicated **Lending-Devnet**, separate from the public
-Devnet and Testnet. Point your client there before anything else; the commonest first-day failure
-is building the whole flow against a network where the amendment is off.
+The XLS-65/66 amendments run on a dedicated **Lending Hackathon devnet**. Point your client
+there before anything else; the commonest first-day failure is building the whole flow against a
+network where the amendment is off. Endpoints below were verified live on 2026-09-12
+(`server_info`: build `3.4.0-rc1`, network id `4001`).
+
+> The older `lend.devnet.rippletest.net` host in earlier docs does **not resolve** — do not use
+> it. (Public Devnet `s.devnet.rippletest.net` happened to carry the amendments too on that date,
+> but the hackathon devnet below is the supported target.)
 
 ## Networks
 
-| Network | WebSocket | Use |
-|---|---|---|
-| **Lending-Devnet** | `wss://lend.devnet.rippletest.net:51233/` | XLS-65/66 vaults and loans. Build here. |
-| Public Devnet | `wss://s.devnet.rippletest.net:51233/` | General devnet, no lending amendment. |
-| Testnet | `wss://s.altnet.rippletest.net:51233/` | RLUSD test tokens live here (not on Devnet). |
+| Network | WebSocket | JSON-RPC | Use |
+|---|---|---|---|
+| **Lending Hackathon devnet** | `wss://lending-hackathon.dev.ripplex.io:51233` | `https://lending-hackathon.dev.ripplex.io:51234/` | XLS-65/66 vaults and loans. Build here. |
+| Testnet | `wss://s.altnet.rippletest.net:51233` | — | RLUSD test tokens live here (not on the hackathon net). |
 
-Verify the amendment is actually live before coding: https://xrpl.org/resources/known-amendments
-(the specs are still Draft status).
+Explorer: `https://custom.xrpl.org/lending-hackathon.dev.ripplex.io:51233/`.
 
-## Faucets
-- Testnet: `https://faucet.altnet.rippletest.net/accounts`
-- Public Devnet: `https://faucet.devnet.rippletest.net/accounts`
-- **Lending-Devnet: no programmatic faucet host is documented.** Fund via the xrpl.org faucet
-  web UI (select "Lending-Devnet") or test a host before scripting against it. Do not assume a
-  `faucet.lend.devnet…` URL.
+Amendments enabled (verified via the `feature` command): `SingleAssetVault`, `LendingProtocol`,
+`LendingProtocolV1_1`, `PermissionedDomains`, `TokenEscrow` (+`fixTokenEscrowV1`), `MPTokensV1`,
+`DynamicMPT`. Re-run `feature` to confirm before coding — the specs are still Draft.
+
+Reserves on this network: **base 10 XRP, incremental 2 XRP** (higher than public Devnet). Budget
+accordingly.
+
+## Faucet (important: non-standard shape)
+`https://lending-hackathon-faucet.dev.ripplex.io/accounts`
+
+POST an empty JSON body. The faucet **generates and funds its own account** (about 1000 XRP) and
+returns its secret; it **ignores any `destination`**, so `xrpl.js` `Client.fundWallet` fails here
+with "faucet account is undefined". Fund by building a wallet from the returned secret:
+
+```js
+const res = await fetch("https://lending-hackathon-faucet.dev.ripplex.io/accounts", {
+  method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+});
+const { account } = await res.json();          // { address, secret }, balance ~1000
+const wallet = Wallet.fromSeed(account.secret); // then poll account_info until validated
+```
 
 ## Library versions (verified)
 - **xrpl.js**: Vault (XLS-65) support from 4.4.0, Loan (XLS-66) from 4.5.0, `LoanSet`
-  counterparty-signing helpers (`signLoanSetByCounterparty`, `combineLoanSetCounterpartySigners`)
-  from 4.6.0. Latest 5.2.0. **Your scaffold's `xrpl@^5.1.0` already covers all of this** — no beta
-  needed. Pin a known 5.x rather than a beta dist-tag.
-- **xrpl-py**: Vault from 4.2.0, Loan from 4.4.0, counterparty helpers from 4.5.0. Latest stable
-  5.1.0. Use ≥ 4.5.0 for the helpers.
-- **xrpl-connect** (wallet adapter): your `^0.8.2` is current stable; a 1.0.0-rc exists.
+  counterparty-signing helpers from 4.6.0. Latest 5.2.0. `xrpl@^5.1.0` covers the transaction
+  types — but see the counterparty-signing bug below.
+- **xrpl-py**: Vault from 4.2.0, Loan from 4.4.0, counterparty helpers from 4.5.0. Use ≥ 4.5.0.
+- **xrpl-connect** (wallet adapter): `^0.8.2` is current stable; a 1.0.0-rc exists.
+
+## Known SDK bug: LoanSet counterparty signing (xrpl.js 5.1.0)
+`signLoanSetByCounterparty` signs the counterparty signature with the standard transaction hash
+prefix `STX`. This rippled build verifies the counterparty signature with a **distinct prefix
+`CPT` (`HashPrefix::CounterpartyTxSign`)**, so the SDK-built signature is rejected with local
+error "Counterparty: Invalid signature". Until a fixed xrpl.js is confirmed, build the counterparty
+signature manually: take `encodeForSigning(tx)` (the first party must have signed already), replace
+the leading 4-byte prefix `53545800` with `43505400`, sign that with the counterparty key, and set
+`CounterpartySignature = { SigningPubKey, TxnSignature }`. The transaction `Account` signs first;
+the `Counterparty` adds the second signature.
 
 ## The RLUSD caveat
 RLUSD test tokens are issued on **Testnet only** (issuer `rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV`),
-not on Lending-Devnet. A vault on Lending-Devnet cannot hold real RLUSD. Use XRP, an IOU you
-issue, or an MPT you issue on Lending-Devnet as the vault asset; model RLUSD in the narrative.
+not on the hackathon devnet. A vault there cannot hold real RLUSD. Use XRP, an IOU you issue, or an
+MPT you issue on the hackathon devnet as the vault asset; model RLUSD in the narrative.
 
 ## Accounts a first-loss institutional-credit flow needs
-Fund these on Lending-Devnet (each needs XRP for reserves + fees):
+Fund these on the hackathon devnet (each needs XRP for reserves + fees):
 1. **Asset issuer** — issues the IOU/MPT used as the vault asset (skip if using XRP).
 2. **Lender(s)** — deposit into the vault, later withdraw + yield (the "senior" capital).
 3. **Loan broker owner** — creates the `LoanBroker`, posts first-loss cover (the "junior" capital).
+   This account must be the **vault owner**: `LoanBrokerSet` returns `tecNO_PERMISSION` for anyone
+   who is not `Vault.Owner`.
 4. **Borrower** — counterparty on `LoanSet`, receives the drawdown, repays.
 
 Reserves to budget: vault = 2 incremental reserves (vault + share issuance); loan broker = 2;
 each loan = 1 (paid by the borrower).
+
+## Interest is cash-basis here (LendingProtocolV1_1)
+Verified: interest is recognized on **payment**, not at origination. `Vault.AssetsTotal` does
+**not** rise by interest due when `LoanSet` is submitted; it rises when `LoanPay` is received.
+`AssetsAvailable` drops by the drawn principal at origination and returns (plus interest) on
+repayment. Do not assert accrual-at-origination against this build.
 
 ## Reference app
 Official Ripple reference for XLS-65/66 on XRPL:
@@ -60,8 +94,9 @@ Read it for working transaction shapes when a field is unclear.
 ## Connecting (xrpl.js)
 ```js
 import { Client } from "xrpl"
-const client = new Client("wss://lend.devnet.rippletest.net:51233/")
+const client = new Client("wss://lending-hackathon.dev.ripplex.io:51233")
 await client.connect()
 // submit VaultCreate / LoanBrokerSet / LoanSet etc.
 ```
-The scaffold's network switcher defaults to AlphaNet — change it to Lending-Devnet for this work.
+The scaffold's network switcher defaults to AlphaNet — change it to the hackathon devnet for this
+work.

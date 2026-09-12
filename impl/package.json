@@ -1,0 +1,14 @@
+{
+  "name": "first-loss-credit-impl",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable implementation of the first-loss institutional credit plan (Track 1, XLS-65/66).",
+  "scripts": {
+    "1.1": "node part-1/1.1_vault_lifecycle_and_yield.mjs"
+  },
+  "dependencies": {
+    "ripple-keypairs": "^3.0.0",
+    "xrpl": "^5.1.0"
+  }
+}

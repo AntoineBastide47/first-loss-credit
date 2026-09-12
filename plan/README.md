@@ -33,7 +33,8 @@ the installed `xrpl@5.1.0` models. Live behavior is **not** verified (see endpoi
 
 ### Shared `lib/` (not a phase)
 Every phase may call these helpers; none is phase-specific:
-- `connect()` — open a client to the Lending-Devnet WebSocket (see endpoint caveat).
+- `connect()` — open a client to the lending hackathon devnet WebSocket and assert the XLS-65/66
+  amendments are enabled.
 - `fundAccounts(n)` — create and fund `n` accounts, wait for validation.
 - `submitAndWait(tx, wallet, extraSigners?)` — autofill, sign, submit, wait for a
   **validated** ledger, return the metadata.
@@ -44,31 +45,50 @@ Every phase may call these helpers; none is phase-specific:
 - `explorer(txHashOrAccount)` — return an explorer URL for the run log.
 - `logFriction(entry)` — append a structured note for the DevEx report.
 
-### Endpoint caveat (BLOCKER — read before running anything)
-- `lend.devnet.rippletest.net` did **not resolve** (ENOTFOUND) on 2026-09-12, while
-  `s.devnet.rippletest.net` and `s.altnet.rippletest.net` resolve.
-- Confirm the **real Lending-Devnet WebSocket host** and that the **XLS-65/66 amendments
-  are active** there with a mentor before execution. Do not run against Mainnet.
-- `xrpl` resolves to `5.1.0` locally; `5.x` includes Vault (4.4.0+) and Loan (4.5.0+)
-  transaction types and `signLoanSetByCounterparty` (4.6.0+).
+### Endpoint (verified live 2026-09-12)
+- **WebSocket:** `wss://lending-hackathon.dev.ripplex.io:51233` (build `3.4.0-rc1`, network
+  `4001`). JSON-RPC `https://lending-hackathon.dev.ripplex.io:51234/`.
+- **Faucet:** `https://lending-hackathon-faucet.dev.ripplex.io/accounts`. POST an empty body;
+  it returns `{ account: { address, secret }, balance }` for a **new** account it funds
+  (~1000 XRP) and **ignores `destination`**, so `Client.fundWallet` does not work — build a
+  wallet from the returned secret. Reserves: base **10 XRP**, incremental **2 XRP**.
+- **Explorer:** `https://custom.xrpl.org/lending-hackathon.dev.ripplex.io:51233/`.
+- Amendments enabled: `SingleAssetVault`, `LendingProtocol`, `LendingProtocolV1_1`,
+  `PermissionedDomains`, `TokenEscrow`, `MPTokensV1`, `DynamicMPT`. The old
+  `lend.devnet.rippletest.net` host does not resolve; do not use it.
+- `xrpl` resolves to `5.1.0` locally; Vault (4.4.0+) and Loan (4.5.0+) types are present, but
+  `signLoanSetByCounterparty` is **broken** against this build (wrong signing prefix — see
+  SDK shapes). Do not run against Mainnet.
 
 ### Cross-cutting protocol rules
-- **Interest is booked to `Vault.AssetsTotal` at `LoanSet` (origination)**, accrual basis.
-  `LoanPay` returns liquid assets to `Vault.AssetsAvailable`. Share price is derived, never
-  stored.
+- **Interest is cash-basis on this build (`LendingProtocolV1_1`), verified in 1.1.** At
+  `LoanSet` (origination) `Vault.AssetsAvailable` drops by the drawn principal and
+  `Vault.AssetsTotal` is **unchanged** (no accrual). Interest is recognized when `LoanPay` is
+  received: `AssetsTotal` and `AssetsAvailable` both rise by the interest paid. Share price is
+  derived, never stored. (The earlier "accrual at origination" assumption was wrong here.)
 - **No stored `utilisation`, `sharePrice`, or `accruedYield`.** Derive from `AssetsTotal`,
   `AssetsAvailable`, `LossUnrealized`, and outstanding shares.
-- **Loan fields hold high-precision decimals.** Never assume integers. Round XRP/MPT
-  payment amounts **up** to the asset base unit.
+- **Loan fields hold high-precision decimals already in the asset base unit** (e.g.
+  `PeriodicPayment` = `"20000038.05..."` drops for an XRP vault). Never assume integers. Round a
+  payment **up to the next whole base unit** (ceil to integer) — the value is not re-scaled.
 - **Timing:** impair only after `NextPaymentDueDate`; default only one validated ledger
   **strictly beyond** `NextPaymentDueDate + GracePeriod`.
 - For each guardrail rejection, make all **other** preconditions pass so the failing reason
   is unambiguous.
 
-### SDK shapes (xrpl@5.1.0, verified locally)
-- **Vault owner = broker owner.** Only `Vault.Owner` can `LoanBrokerSet`. The account that
-  creates the vault must be the one that creates the broker.
-- **Vault XRP asset:** `Asset: { currency: "XRP" }`. The bare string `"XRP"` fails validation.
+### SDK shapes (xrpl@5.1.0; ✅ = verified live on the hackathon devnet in 1.1)
+- ✅ **Vault owner = broker owner.** Only `Vault.Owner` can `LoanBrokerSet`; any other account
+  gets `tecNO_PERMISSION`. The account that creates the vault must create the broker.
+- ✅ **LoanSet counterparty signing — `signLoanSetByCounterparty` is broken here.** It signs with
+  the standard `STX` prefix, but this rippled verifies the counterparty signature with the
+  `CPT` (`CounterpartyTxSign`) prefix, so it is rejected locally as "Counterparty: Invalid
+  signature". Work around it: `Account` signs first, then take `encodeForSigning(tx)`, replace
+  the leading `53545800` with `43505400`, sign with the counterparty key, and set
+  `CounterpartySignature = { SigningPubKey, TxnSignature }`. (`lib/signLoanSetCounterparty`.)
+- ✅ **VaultWithdraw `Amount` selects what you redeem.** A bare asset amount (XRP drops) withdraws
+  that many **assets** and leaves yield behind. To redeem **all shares** and receive their full
+  value, pass the **share MPT** amount `{ mpt_issuance_id: ShareMPTID, value: shares }`.
+- ✅ **Vault XRP asset:** `Asset: { currency: "XRP" }`. The bare string `"XRP"` fails validation.
 - **Vault MPT asset:** `Asset: { mpt_issuance_id }` with **no `value`**. Deposit/withdraw
   `Amount` fields **do** carry `value`. **Omit `Scale`** for MPT/XRP vaults (do not send `0`);
   it reads back as `0`. An explicit `Scale` on an MPT asset is rejected at client-side
@@ -94,3 +114,8 @@ Every phase may call these helpers; none is phase-specific:
 Objective → Independence contract → Preconditions this phase builds → Actors → Transaction
 steps (exact fields) → Expected results and assertions → Explorer verification →
 Precision/timing rules → Friction to capture → xrpl.js references → XLS references.
+
+
+## Other info
+
+Notion: https://holly-pixie-8e9.notion.site/XRPL-Lending-Protocol-Hackathon-3152f6835886823ab31f01cd9d1f6ded

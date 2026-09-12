@@ -11,8 +11,8 @@ Gate who may lend or borrow (KYC). Hooks in natively: `VaultCreate` takes `Domai
 - Guardrail to show: an uncredentialed deposit/borrow → `tecNO_AUTH`.
 
 ## 2. MPTs (high fit — often required here)
-RLUSD test tokens exist only on Testnet, not on Lending-Devnet, so you cannot use real RLUSD as
-the vault asset on the lending network. Issue your own stablecoin as an MPT and make it the vault
+RLUSD test tokens exist only on Testnet, not on the lending hackathon devnet, so you cannot use
+real RLUSD as the vault asset on the lending network. Issue your own stablecoin as an MPT and make it the vault
 `Asset`; model RLUSD in the narrative only.
 - Extra transactions: `MPTokenIssuanceCreate`, `MPTokenAuthorize`.
 - Gotcha to report: the vault forces `Scale = 0` for an MPT asset.
