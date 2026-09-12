@@ -1,0 +1,60 @@
+{
+  "name": "create-xrp",
+  "version": "0.3.1",
+  "description": "CLI tool to scaffold XRPL dApps with Next.js and smart contracts",
+  "main": "dist/index.js",
+  "bin": {
+    "create-xrp": "dist/index.js"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "dev": "tsup src/index.ts --format esm --watch",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "xrpl",
+    "xrp",
+    "scaffold",
+    "blockchain",
+    "dapp",
+    "nextjs",
+    "cli",
+    "create-xrp",
+    "scaffold-xrp",
+    "smart-contracts"
+  ],
+  "author": "RomThpt, LeJamon",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XRPL-Commons/scaffold-xrp.git",
+    "directory": "packages/create-xrp"
+  },
+  "bugs": {
+    "url": "https://github.com/XRPL-Commons/scaffold-xrp/issues"
+  },
+  "homepage": "https://github.com/XRPL-Commons/scaffold-xrp#readme",
+  "dependencies": {
+    "chalk": "^6.0.0",
+    "commander": "^15.0.0",
+    "inquirer": "^14.2.2",
+    "ora": "^9.4.1",
+    "validate-npm-package-name": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/validate-npm-package-name": "^4.0.2",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
