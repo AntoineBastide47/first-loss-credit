@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useWallet } from "../components/providers/WalletProvider";
 
 // Configuration - Replace with your API keys
@@ -10,6 +10,29 @@ const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_I
 export function useWalletManager() {
   const { walletManager, setWalletManager, setIsConnected, setAccountInfo, addEvent, showStatus } =
     useWallet();
+
+  const updateConnectionState = useCallback(
+    (manager) => {
+      const connected = manager.connected;
+      setIsConnected(connected);
+
+      if (connected) {
+        const account = manager.account;
+        const wallet = manager.wallet;
+
+        if (account && wallet) {
+          setAccountInfo({
+            address: account.address,
+            network: `${account.network.name} (${account.network.id})`,
+            walletName: wallet.name,
+          });
+        }
+      } else {
+        setAccountInfo(null);
+      }
+    },
+    [setIsConnected, setAccountInfo],
+  );
 
   useEffect(() => {
     // Dynamic import to avoid SSR issues
@@ -82,27 +105,14 @@ export function useWalletManager() {
     };
 
     initWalletManager();
-  }, [setWalletManager, setIsConnected, setAccountInfo, addEvent, showStatus]);
-
-  const updateConnectionState = (manager) => {
-    const connected = manager.connected;
-    setIsConnected(connected);
-
-    if (connected) {
-      const account = manager.account;
-      const wallet = manager.wallet;
-
-      if (account && wallet) {
-        setAccountInfo({
-          address: account.address,
-          network: `${account.network.name} (${account.network.id})`,
-          walletName: wallet.name,
-        });
-      }
-    } else {
-      setAccountInfo(null);
-    }
-  };
+  }, [
+    setWalletManager,
+    setIsConnected,
+    setAccountInfo,
+    addEvent,
+    showStatus,
+    updateConnectionState,
+  ]);
 
   return { walletManager };
 }

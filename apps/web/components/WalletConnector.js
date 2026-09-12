@@ -38,6 +38,9 @@ export function WalletConnector() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // Deliberate client-mount guard: the custom element must not render during SSR
+    // or the first hydration pass, only after it is registered below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsClient(true);
 
     // Register the web component

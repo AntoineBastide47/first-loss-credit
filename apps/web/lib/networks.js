@@ -1,4 +1,16 @@
 export const NETWORKS = {
+  // Lending hackathon devnet: XLS-65/66 amendments enabled (verified 2026-09-12,
+  // build 3.4.0-rc1, network 4001, reserves base 10 XRP / inc 2 XRP). The faucet
+  // POSTs an empty body and returns a NEW funded account { address, secret }; it
+  // ignores `destination`, so Client.fundWallet does not work here.
+  LENDING_HACKATHON: {
+    id: "lending-hackathon",
+    name: "Lending Hackathon Devnet",
+    networkId: 4001,
+    wss: "wss://lending-hackathon.dev.ripplex.io:51233",
+    faucet: "https://lending-hackathon-faucet.dev.ripplex.io/accounts",
+    explorer: "https://custom.xrpl.org/lending-hackathon.dev.ripplex.io:51233",
+  },
   ALPHANET: {
     id: "alphanet",
     name: "AlphaNet",
@@ -25,4 +37,4 @@ export const NETWORKS = {
   },
 };
 
-export const DEFAULT_NETWORK = NETWORKS.ALPHANET;
+export const DEFAULT_NETWORK = NETWORKS.LENDING_HACKATHON;
