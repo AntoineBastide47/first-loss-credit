@@ -80,3 +80,12 @@ export function shortId(id, n = 6) {
   const s = String(id ?? "");
   return s.length > 2 * n + 1 ? `${s.slice(0, n)}…${s.slice(-n)}` : s;
 }
+
+// Seconds between the Unix epoch and the Ripple epoch (2000-01-01T00:00:00Z).
+const RIPPLE_EPOCH_OFFSET = 946684800;
+
+/** A ripple-epoch timestamp (e.g. NextPaymentDueDate) as a locale date string. */
+export function formatRippleTime(rippleSeconds) {
+  if (rippleSeconds == null) return null;
+  return new Date((Number(rippleSeconds) + RIPPLE_EPOCH_OFFSET) * 1000).toLocaleString();
+}
