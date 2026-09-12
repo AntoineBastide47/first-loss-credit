@@ -63,6 +63,21 @@ export function escrowFinishTx(submitter, { owner, offerSequence, condition, ful
   return tx;
 }
 
+/** Read the Escrow object by (owner, offerSequence), or null if none exists. */
+export async function readEscrow(client, owner, offerSequence) {
+  try {
+    const { result } = await client.request({
+      command: "ledger_entry",
+      escrow: { owner: owner.address ?? owner, seq: offerSequence },
+      ledger_index: "validated",
+    });
+    return result.node;
+  } catch (e) {
+    if (e?.data?.error === "entryNotFound") return null;
+    throw e;
+  }
+}
+
 /** EscrowCancel tx object (valid only after CancelAfter; returns the token to owner). */
 export const escrowCancelTx = (submitter, { owner, offerSequence }) => ({
   TransactionType: "EscrowCancel",

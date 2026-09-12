@@ -16,7 +16,8 @@
     "3.1": "node part-3/3.1_mpt_issuance.mjs",
     "3.2": "node part-3/3.2_mpt_asset_vault.mjs",
     "3.3": "node part-3/3.3_mpt_loan_flow.mjs",
-    "4.1": "node part-4/4.1_token_escrow_basics.mjs"
+    "4.1": "node part-4/4.1_token_escrow_basics.mjs",
+    "4.2": "node part-4/4.2_app_verified_collateralized_origination.mjs"
   },
   "dependencies": {
     "xrpl": "5.2.0-beta.1"
