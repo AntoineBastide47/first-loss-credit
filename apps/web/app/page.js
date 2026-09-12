@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { Header } from "../components/Header";
 import { MARKET } from "../lib/market";
 import { marketVault, marketBroker, utilisation } from "../lib/product";
-import { formatDrops, groupThousands } from "../lib/format";
+import { assetSymbol, formatAmount } from "../lib/asset";
 import { Card, CardContent } from "../components/ui/card";
 import { buttonVariants } from "../components/ui/button";
 
-const xrp = (drops) => groupThousands(formatDrops(String(drops ?? "0")));
 const big = (v) => BigInt(v ?? "0");
+const asset = MARKET.asset;
+const sym = assetSymbol(asset);
+const xrp = (base) => formatAmount(asset, base);
 
 export default function Home() {
   const [vault, setVault] = useState(null);
@@ -18,8 +20,8 @@ export default function Home() {
 
   useEffect(() => {
     let on = true;
-    marketVault().then((v) => on && setVault(v)).catch(() => {});
-    marketBroker().then((b) => on && setBroker(b)).catch(() => {});
+    marketVault(MARKET).then((v) => on && setVault(v)).catch(() => {});
+    marketBroker(MARKET).then((b) => on && setBroker(b)).catch(() => {});
     return () => {
       on = false;
     };

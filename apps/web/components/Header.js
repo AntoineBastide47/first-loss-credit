@@ -12,6 +12,8 @@ const NAV = [
   { href: "/cover", label: "Cover" },
   { href: "/borrow", label: "Borrow" },
   { href: "/manage", label: "Loans" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/protection", label: "Protection" },
   { href: "/access", label: "Access" },
   { href: "/tokens", label: "Tokens" },
   { href: "/escrow", label: "Escrow" },

@@ -11,7 +11,7 @@
 
 import { Client, Wallet, decode, signLoanSetByCounterparty } from "xrpl";
 import { DEFAULT_NETWORK } from "../../../lib/networks";
-import { MARKET } from "../../../lib/market";
+import { getMarket } from "../../../lib/market";
 
 export const runtime = "nodejs";
 
@@ -29,11 +29,11 @@ function createdLoanId(meta) {
  * positive drops amount within the vault's available liquidity. Returns an error
  * string, or null when the loan is acceptable.
  */
-function rejectLoan(tx, availableDrops) {
-  const t = MARKET.loanTerms;
+function rejectLoan(tx, market, availableBase) {
+  const t = market.loanTerms;
   if (tx?.TransactionType !== "LoanSet") return "Not a loan request.";
-  if (tx.Counterparty !== MARKET.operator) return "Loan is not addressed to this desk.";
-  if (tx.LoanBrokerID !== MARKET.brokerId) return "Loan is for a different market.";
+  if (tx.Counterparty !== market.operator) return "Loan is not addressed to this desk.";
+  if (tx.LoanBrokerID !== market.brokerId) return "Loan is for a different market.";
   if (Number(tx.InterestRate) !== t.InterestRate) return "Interest rate is not the desk's rate.";
   if (Number(tx.PaymentInterval) !== t.PaymentInterval) return "Payment schedule is not the desk's schedule.";
   if (Number(tx.PaymentTotal) !== t.PaymentTotal) return "Number of payments is not the desk's schedule.";
@@ -45,12 +45,12 @@ function rejectLoan(tx, availableDrops) {
     return "Loan amount is malformed.";
   }
   if (principal <= 0n) return "Loan amount must be positive.";
-  if (principal > availableDrops) return "Loan amount exceeds available liquidity.";
+  if (principal > availableBase) return "Loan amount exceeds available liquidity.";
   return null;
 }
 
-async function availableLiquidity(client) {
-  const { result } = await client.request({ command: "vault_info", vault_id: MARKET.vaultId });
+async function availableLiquidity(client, market) {
+  const { result } = await client.request({ command: "vault_info", vault_id: market.vaultId });
   return BigInt(result.vault?.AssetsAvailable ?? "0");
 }
 
@@ -58,15 +58,16 @@ export async function POST(req) {
   const seed = process.env.OPERATOR_SEED;
   if (!seed) return Response.json({ error: "The lending desk is not configured." }, { status: 500 });
 
-  let borrowerBlob;
+  let borrowerBlob, marketId;
   try {
-    ({ borrowerBlob } = await req.json());
+    ({ borrowerBlob, marketId } = await req.json());
   } catch {
     return Response.json({ error: "Bad request." }, { status: 400 });
   }
   if (typeof borrowerBlob !== "string" || !borrowerBlob) {
     return Response.json({ error: "Missing signed loan." }, { status: 400 });
   }
+  const market = getMarket(marketId);
 
   let loanTx;
   try {
@@ -80,7 +81,7 @@ export async function POST(req) {
   try {
     await client.connect();
 
-    const reason = rejectLoan(loanTx, await availableLiquidity(client));
+    const reason = rejectLoan(loanTx, market, await availableLiquidity(client, market));
     if (reason) return Response.json({ error: reason }, { status: 422 });
 
     const { tx_blob } = signLoanSetByCounterparty(operator, borrowerBlob);

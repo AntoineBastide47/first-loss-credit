@@ -1,22 +1,23 @@
 "use client";
 
-// Loans: the desk's view of the loan book — outstanding loans, their health, and the
-// ability to default an unrecoverable one (which draws down first-loss cover and, if
-// short, realizes a loss to the vault). Human XRP; no ledger ids.
+// Loans: the desk's view of a market's loan book — outstanding loans, their health, and
+// the ability to default an unrecoverable one (which draws down first-loss cover and, if
+// short, realizes a loss to the vault). Amounts follow the market's asset; no ledger ids.
 
 import { useCallback, useEffect, useState } from "react";
 import { LoanManageFlags } from "xrpl";
 import { Header } from "../../components/Header";
+import { MarketSelect } from "../../components/MarketSelect";
 import { TxButton, explain } from "../../components/lending";
 import { useWallet } from "../../components/providers/WalletProvider";
-import { MARKET } from "../../lib/market";
+import { MARKETS } from "../../lib/market";
 import { marketBroker, knownLoans } from "../../lib/product";
 import { readLoan } from "../../lib/lending-read";
-import { formatDrops, groupThousands, roundUpToAssetUnit, formatRippleTime } from "../../lib/format";
+import { assetSymbol, formatAmount } from "../../lib/asset";
+import { formatRippleTime } from "../../lib/format";
 import { Card, CardContent } from "../../components/ui/card";
 
 const POLL_MS = 8000;
-const xrp = (d) => groupThousands(formatDrops(String(d ?? "0")));
 const big = (v) => BigInt(v ?? "0");
 const rippleNow = () => Math.floor(Date.now() / 1000) - 946684800;
 const LSF_LOAN_DEFAULT = 0x00010000;
@@ -35,29 +36,35 @@ export default function ManagePage() {
   const { walletManager, isConnected } = useWallet();
   const address = walletManager?.account?.address || null;
 
+  const [market, setMarket] = useState(MARKETS[0]);
+  const asset = market.asset;
+  const sym = assetSymbol(asset);
+  const isOperator = address === market.operator;
+
   const [broker, setBroker] = useState(null);
   const [loans, setLoans] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      setBroker(await marketBroker());
+      setBroker(await marketBroker(market));
     } catch {
       /* ignore */
     }
-    const ids = knownLoans();
+    const ids = knownLoans(market);
     const read = await Promise.all(
       ids.map((id) => readLoan(id).then((l) => ({ id, loan: l })).catch(() => null)),
     );
     setLoans(read.filter(Boolean));
-  }, []);
+  }, [market]);
 
   useEffect(() => {
+    setBroker(null);
+    setLoans([]);
     load();
     const t = setInterval(load, POLL_MS);
     return () => clearInterval(t);
   }, [load]);
 
-  const isOperator = address === MARKET.operator;
   const cover = broker ? big(broker.CoverAvailable) : 0n;
   const debt = broker ? big(broker.DebtTotal) : 0n;
 
@@ -74,15 +81,17 @@ export default function ManagePage() {
             </p>
           </div>
 
+          <MarketSelect value={market} onChange={setMarket} />
+
           <Card>
             <CardContent className="grid grid-cols-2 gap-4 p-6">
               <div>
                 <p className="text-xs text-muted-foreground">Total lent</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">{xrp(debt)} XRP</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{formatAmount(asset, debt)} {sym}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">First-loss cover</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{xrp(cover)} XRP</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{formatAmount(asset, cover)} {sym}</p>
               </div>
             </CardContent>
           </Card>
@@ -96,7 +105,7 @@ export default function ManagePage() {
                   <CardContent className="space-y-3 p-6">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-lg font-semibold tabular-nums">{xrp(loan.PrincipalOutstanding)} XRP outstanding</p>
+                        <p className="text-lg font-semibold tabular-nums">{formatAmount(asset, loan.PrincipalOutstanding)} {sym} outstanding</p>
                         <p className="text-xs text-muted-foreground">
                           {loan.PaymentRemaining ?? 0} payment(s) left · next due {formatRippleTime(loan.NextPaymentDueDate)}
                         </p>
