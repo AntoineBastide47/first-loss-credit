@@ -30,6 +30,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   - `1.3_loan_origination_and_repayment.mjs` — dual-signed LoanSet + repayment + tfLoanFullPayment rules.
   - `1.4_impairment_default_recovery.mjs` — impair, default, first-loss recovery, timing guards.
   - `1.5_guardrail_gallery.mjs` — 8 guardrail rejections (A-H), each with a positive control.
+- `part-2/` — Part 2 (Permissioned Domains + Credentials), verified live on-chain:
+  - `2.1_credential_issuance.mjs` — CredentialCreate + CredentialAccept; one instance per subject,
+    keyed by (Issuer, Subject, CredentialType), lsfAccepted set only after accept.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).

@@ -1,0 +1,134 @@
+// Phase 2.1 — Credential Issuance
+//
+// Issue a credential from an issuer to a subject (CredentialCreate), then have the
+// subject accept it (CredentialAccept). This is the membership primitive that gates
+// vault depositors in later Part 2 phases.
+//
+// Design (verified): CredentialCreate issues ONE credential instance to ONE subject.
+// It does NOT define a reusable credential type; CredentialType is a hex label
+// carried on the instance. The Credential ledger object is keyed by
+// (Issuer, Subject, CredentialType). It is created unaccepted; CredentialAccept sets
+// the lsfAccepted flag. Only an accepted credential satisfies a permissioned domain.
+//
+// Independence: this phase funds its own issuer and subject and ends with an accepted
+// credential it hands to no other phase. It imports no other phase.
+//
+// Run:  node part-2/2.1_credential_issuance.mjs
+
+import { convertStringToHex } from "xrpl";
+import {
+  connect,
+  fundAccounts,
+  submitAndWait,
+  logFriction,
+} from "../lib/index.mjs";
+import { assert, makeRecorder } from "../lib/lending.mjs";
+
+// Credential ledger object flag (ripple-binary-codec: lsfAccepted = 65536). Set by
+// CredentialAccept; unset on the object CredentialCreate first writes.
+const LSF_ACCEPTED = 0x00010000;
+
+/** Read the Credential object keyed by (issuer, subject, credentialType), or null. */
+async function readCredential(client, { issuer, subject, credentialType }) {
+  try {
+    const { result } = await client.request({
+      command: "ledger_entry",
+      credential: { issuer, subject, credential_type: credentialType },
+      ledger_index: "validated",
+    });
+    return result.node;
+  } catch (e) {
+    if (e?.data?.error === "entryNotFound") return null;
+    throw e;
+  }
+}
+
+async function main() {
+  const client = await connect();
+  console.log(`connected: ${client.connection.getUrl?.() ?? "ok"}`);
+  const { record, printLinks } = makeRecorder();
+
+  try {
+    // Precondition: fund issuer and subject.
+    const [issuer, subject] = await fundAccounts(client, 2);
+    console.log(`issuer=${issuer.address}\nsubject=${subject.address}`);
+
+    // CredentialType and URI must be hex-encoded (xrpl.js and the ledger reject raw
+    // ASCII). Encode the human labels here.
+    const credentialType = convertStringToHex("KYC_ACCREDITED");
+    const uri = convertStringToHex("https://issuer.example/kyc/accredited");
+    console.log(`  CredentialType=KYC_ACCREDITED -> ${credentialType}`);
+
+    // Step 1: CredentialCreate (issuer -> subject).
+    const create = await submitAndWait(client, {
+      TransactionType: "CredentialCreate",
+      Account: issuer.address,
+      Subject: subject.address,
+      CredentialType: credentialType,
+      URI: uri,
+    }, issuer);
+    record("CredentialCreate", create.hash);
+
+    // The instance exists immediately, keyed by (Issuer, Subject, CredentialType),
+    // but is NOT yet accepted.
+    const beforeAccept = await readCredential(client, {
+      issuer: issuer.address, subject: subject.address, credentialType,
+    });
+    assert(beforeAccept !== null, "Credential object exists after CredentialCreate");
+    assert(beforeAccept.Issuer === issuer.address, "Credential.Issuer == issuer");
+    assert(beforeAccept.Subject === subject.address, "Credential.Subject == subject");
+    assert(beforeAccept.CredentialType === credentialType, "Credential.CredentialType == label");
+    assert((Number(beforeAccept.Flags ?? 0) & LSF_ACCEPTED) === 0,
+      "Credential is unaccepted before CredentialAccept (lsfAccepted clear)");
+
+    // Step 2: CredentialAccept (subject).
+    const accept = await submitAndWait(client, {
+      TransactionType: "CredentialAccept",
+      Account: subject.address,
+      Issuer: issuer.address,
+      CredentialType: credentialType,
+    }, subject);
+    record("CredentialAccept", accept.hash);
+
+    // The same object is now accepted.
+    const afterAccept = await readCredential(client, {
+      issuer: issuer.address, subject: subject.address, credentialType,
+    });
+    assert(afterAccept !== null, "Credential object still exists after CredentialAccept");
+    assert((Number(afterAccept.Flags ?? 0) & LSF_ACCEPTED) !== 0,
+      "Credential is accepted after CredentialAccept (lsfAccepted set)");
+
+    console.log("\nAccepted Credential object:");
+    console.log(JSON.stringify({
+      index: afterAccept.index,
+      Issuer: afterAccept.Issuer,
+      Subject: afterAccept.Subject,
+      CredentialType: afterAccept.CredentialType,
+      Flags: afterAccept.Flags,
+      URI: afterAccept.URI,
+    }, null, 2));
+
+    printLinks();
+
+    // Friction to capture (plan 2.1).
+    logFriction({
+      phase: "2.1", surface: "docs", feature: "credentials", tx_type: "CredentialCreate",
+      note: "CredentialCreate issues one instance per subject; CredentialType is a label on the instance, not a separate reusable type object. No type object is created.",
+    });
+    logFriction({
+      phase: "2.1", surface: "sdk", feature: "credentials", tx_type: "CredentialCreate",
+      note: "CredentialType and URI must be hex-encoded; xrpl.js validation rejects raw ASCII with 'must be encoded in hex'. convertStringToHex handles it.",
+    });
+
+    console.log("\nPhase 2.1 complete: credential issued and accepted (lsfAccepted set).");
+  } finally {
+    await client.disconnect();
+  }
+}
+
+main().catch((e) => {
+  logFriction({ phase: "2.1", error: e.message, code: e.code });
+  console.error("\nFAILED:", e.message);
+  if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
+  process.exit(1);
+});
