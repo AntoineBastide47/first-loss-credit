@@ -1,0 +1,26 @@
+{
+  "name": "lending-flows",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable first-loss institutional credit flows against the XRPL lending devnet (XLS-33/65/66/70/80/85).",
+  "scripts": {
+    "vault:lifecycle": "node src/vault/lifecycle-and-yield.mjs",
+    "vault:gated-private": "node src/vault/gated-private.mjs",
+    "broker:first-loss-cover": "node src/broker/first-loss-cover.mjs",
+    "loan:origination": "node src/loan/origination-and-repayment.mjs",
+    "loan:impairment-default": "node src/loan/impairment-default-recovery.mjs",
+    "loan:guardrails": "node src/loan/guardrails.mjs",
+    "credentials:issuance": "node src/credentials/issuance.mjs",
+    "credentials:permissioned-domain": "node src/credentials/permissioned-domain.mjs",
+    "mpt:issuance": "node src/mpt/issuance.mjs",
+    "mpt:asset-vault": "node src/mpt/asset-vault.mjs",
+    "mpt:loan-flow": "node src/mpt/loan-flow.mjs",
+    "escrow:basics": "node src/escrow/token-basics.mjs",
+    "escrow:collateralized-origination": "node src/escrow/collateralized-origination.mjs",
+    "escrow:default-claim": "node src/escrow/default-and-claim.mjs"
+  },
+  "dependencies": {
+    "xrpl": "5.2.0-beta.1"
+  }
+}

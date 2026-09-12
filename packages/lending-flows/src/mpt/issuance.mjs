@@ -1,4 +1,4 @@
-// Phase 3.1 — MPT Issuance
+// MPT Issuance
 //
 // Issue an MPT suitable to be a vault asset and to authorize holders, including the
 // two-step authorization path when the issuance requires auth:
@@ -6,12 +6,12 @@
 // A holder cannot hold a positive balance until BOTH steps complete.
 //
 // AssetScale here is the MPT's OWN scale. It is separate from the vault share Scale
-// (Part 3.2); mixing the two is a likely bug.
+// (set at vault creation); mixing the two is a likely bug.
 //
-// Independence: this phase funds its own issuer and holders and ends with an
-// authorized MPT it hands to no other phase. It imports no other phase.
+// Independence: this flow funds its own issuer and holders and ends with an
+// authorized MPT it hands to no other flow. It imports no other flow.
 //
-// Run:  node part-3/3.1_mpt_issuance.mjs
+// Run:  node src/mpt/issuance.mjs
 
 import { convertStringToHex } from "xrpl";
 import {
@@ -46,7 +46,7 @@ async function main() {
     console.log(`issuer=${issuer.address}\nholderA=${holderA.address}\nholderB=${holderB.address}`);
 
     // Step 1: MPTokenIssuanceCreate. Transferable (so it can move between vault,
-    // lenders, borrowers), gated (RequireAuth), and escrow-capable (Part 4 reuse).
+    // lenders, borrowers), gated (RequireAuth), and escrow-capable (for later escrow-collateral use).
     const flags = F.tfMPTCanTransfer | F.tfMPTRequireAuth | F.tfMPTCanEscrow;
     const { hash: createHash, issuanceId } = await createMptIssuance(client, issuer, {
       flags,
@@ -115,24 +115,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 3.1).
+    // Friction to capture.
     logFriction({
-      phase: "3.1", surface: "protocol", feature: "mpt", tx_type: "MPTokenAuthorize",
+      flow: "mpt/issuance", surface: "protocol", feature: "mpt", tx_type: "MPTokenAuthorize",
       note: "With tfMPTRequireAuth, authorization is two MPTokenAuthorize txns with no flag difference: the holder opts in (Account=holder, no Holder) and the issuer authorizes (Account=issuer, Holder=holder). The direction is distinguished only by whether Holder is set.",
     });
     logFriction({
-      phase: "3.1", surface: "docs", feature: "mpt", tx_type: "MPTokenIssuanceCreate",
+      flow: "mpt/issuance", surface: "docs", feature: "mpt", tx_type: "MPTokenIssuanceCreate",
       note: "tfMPT* flags and hex values (CanTransfer 0x20, RequireAuth 0x04, CanEscrow 0x08) are in the xrpl.js MPTokenIssuanceCreateFlags enum; the ledger object stores them at the same bit positions.",
     });
 
-    console.log("\nPhase 3.1 complete: MPT issued; two-step auth enforced (balance only after both steps).");
+    console.log("\nComplete: MPT issued; two-step auth enforced (balance only after both steps).");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "3.1", error: e.message, code: e.code });
+  logFriction({ flow: "mpt/issuance", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

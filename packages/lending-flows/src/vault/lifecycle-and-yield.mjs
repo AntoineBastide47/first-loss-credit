@@ -1,13 +1,13 @@
-// Phase 1.1 — Vault Lifecycle and Yield
+// Vault Lifecycle and Yield
 //
 // Create an open-ended Single Asset Vault (XRP), deposit lender capital, generate
 // REAL yield with one minimal loan cycle, then withdraw above par. Prove share
 // value rises and that yield is derived, not stored.
 //
-// Independence: this phase builds its own owner/lender/borrower, vault, broker, and
-// loan via the shared lib. It imports no other phase and reads no phase's state.
+// Independence: this flow builds its own owner/lender/borrower, vault, broker, and
+// loan via the shared lib. It imports no other flow and reads no flow's state.
 //
-// Run:  node part-1/1.1_vault_lifecycle_and_yield.mjs
+// Run:  node src/vault/lifecycle-and-yield.mjs
 
 import {
   connect,
@@ -115,14 +115,14 @@ async function main() {
     console.log(`\nLender gain on redemption: ${dropsToXrp((BigInt(payoutDrops) - BigInt(depositDrops)).toString())} XRP` +
       ` (real loan interest, derived from share price, not a stored field)`);
     printLinks();
-    console.log("\nPhase 1.1 complete: share value rose from real loan interest.");
+    console.log("\nComplete: share value rose from real loan interest.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "1.1", error: e.message, code: e.code });
+  logFriction({ flow: "vault/lifecycle-and-yield", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

@@ -1,4 +1,4 @@
-// Phase 3.3 — MPT Loan Flow
+// MPT Loan Flow
 //
 // Run a full loan (originate + repay) in an MPT-denominated vault and prove the
 // payment rounding rule: the high-precision periodic payment must be paid as a whole
@@ -9,10 +9,10 @@
 // paid Amount are integer base units. PrincipalRequested is a plain XRPLNumber string;
 // only LoanPay.Amount is the MPT object { mpt_issuance_id, value }.
 //
-// Independence: this phase issues its own MPT, builds an MPT vault, a broker with MPT
-// cover, and one loan via the shared lib. It imports no other phase.
+// Independence: this flow issues its own MPT, builds an MPT vault, a broker with MPT
+// cover, and one loan via the shared lib. It imports no other flow.
 //
-// Run:  node part-3/3.3_mpt_loan_flow.mjs
+// Run:  node src/mpt/loan-flow.mjs
 
 import {
   connect,
@@ -106,7 +106,7 @@ async function main() {
     console.log(`  PeriodicPayment=${periodic} -> floor=${floorAmt} ceil=${ceilAmt}`);
 
     // Truncated-down payment falls short. For an MPT vault the sub-unit shortfall is
-    // NOT tolerated (unlike the XRP drops case in Part 1), so floor -> tecINSUFFICIENT_PAYMENT.
+    // NOT tolerated (unlike the XRP drops case), so floor -> tecINSUFFICIENT_PAYMENT.
     const floorTry = await submitExpectingFailure(client, {
       TransactionType: "LoanPay", Account: borrower.address, LoanID: loan0.loanId,
       Amount: { mpt_issuance_id: issuanceId, value: floorAmt },
@@ -128,24 +128,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 3.3).
+    // Friction to capture.
     logFriction({
-      phase: "3.3", surface: "protocol", feature: "xls-66", tx_type: "LoanPay",
-      note: `MPT integer base units collide with the loan's decimal PeriodicPayment (${periodic}). The paid MPT amount must be a whole base unit rounded UP; there is no SDK helper, so rounding is manual (roundUpToAssetUnit). Verified contrast: truncating the fraction down fails tecINSUFFICIENT_PAYMENT for an MPT vault, while the XRP drops case in Part 1 tolerates the same sub-unit truncation.`,
+      flow: "mpt/loan-flow", surface: "protocol", feature: "xls-66", tx_type: "LoanPay",
+      note: `MPT integer base units collide with the loan's decimal PeriodicPayment (${periodic}). The paid MPT amount must be a whole base unit rounded UP; there is no SDK helper, so rounding is manual (roundUpToAssetUnit). Verified contrast: truncating the fraction down fails tecINSUFFICIENT_PAYMENT for an MPT vault, while the XRP drops case tolerates the same sub-unit truncation.`,
     });
     logFriction({
-      phase: "3.3", surface: "sdk", feature: "xls-33", tx_type: "LoanSet",
+      flow: "mpt/loan-flow", surface: "sdk", feature: "xls-33", tx_type: "LoanSet",
       note: "PrincipalRequested is a plain XRPLNumber string; only LoanPay.Amount is the MPT object { mpt_issuance_id, value }. The string-vs-object split is easy to mix up.",
     });
 
-    console.log(`\nPhase 3.3 complete: MPT loan originated and repaid; pay amount must round UP to a whole base unit.`);
+    console.log(`\nComplete: MPT loan originated and repaid; pay amount must round UP to a whole base unit.`);
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "3.3", error: e.message, code: e.code });
+  logFriction({ flow: "mpt/loan-flow", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

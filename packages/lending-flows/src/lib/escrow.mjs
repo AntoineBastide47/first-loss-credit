@@ -1,5 +1,5 @@
-// Shared, phase-agnostic builders for XLS-85 TokenEscrow. These belong to no phase;
-// a phase imports them like any library and never imports another phase.
+// Shared builders for XLS-85 TokenEscrow. These belong to no flow;
+// a flow imports them like any library and never imports another flow.
 
 import { createHash, randomBytes } from "node:crypto";
 

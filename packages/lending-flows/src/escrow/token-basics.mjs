@@ -1,17 +1,17 @@
-// Phase 4.1 — Token Escrow Basics
+// Token Escrow Basics
 //
 // Lock an MPT in an escrow and release it (finish), and cancel a second escrow back to
-// its owner. Learn the TokenEscrow mechanics the collateral flow (Part 4.2/4.3) needs:
+// its owner. Learn the TokenEscrow mechanics the collateral flow needs:
 //   - EscrowCreate has NO Data field: you cannot store a loan back-reference on the
 //     escrow. Correlation is one-way (application state / LoanSet.Data) or a tx memo.
 //   - MPT escrow between non-issuers needs BOTH tfMPTCanEscrow and tfMPTCanTransfer.
 //   - EscrowFinish uses Owner + OfferSequence (the create's sequence); any account may
 //     submit it; a crypto-condition, not the submitter, controls release.
 //
-// Independence: this phase issues its own MPT and builds one escrow it finishes and one
-// it cancels. It imports no other phase.
+// Independence: this flow issues its own MPT and builds one escrow it finishes and one
+// it cancels. It imports no other flow.
 //
-// Run:  node part-4/4.1_token_escrow_basics.mjs
+// Run:  node src/escrow/token-basics.mjs
 
 import {
   connect,
@@ -135,24 +135,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 4.1).
+    // Friction to capture.
     logFriction({
-      phase: "4.1", surface: "protocol", feature: "escrow", tx_type: "EscrowCreate",
+      flow: "escrow/token-basics", surface: "protocol", feature: "escrow", tx_type: "EscrowCreate",
       note: "EscrowCreate has no Data field, so an escrow cannot hold a loan back-reference. Loan correlation must be one-way (application state or LoanSet.Data) or a transaction memo.",
     });
     logFriction({
-      phase: "4.1", surface: "protocol", feature: "escrow", tx_type: "EscrowCreate",
+      flow: "escrow/token-basics", surface: "protocol", feature: "escrow", tx_type: "EscrowCreate",
       note: `Escrow release codes observed: early finish -> ${early.code}, wrong fulfillment -> ${badFulfil.code}. Locking permission differs by token: IOU needs the issuer account flag asfAllowTrustLineLocking; MPT needs tfMPTCanEscrow + tfMPTCanTransfer on the issuance.`,
     });
 
-    console.log("\nPhase 4.1 complete: MPT escrow locked, finished to destination, and a second escrow canceled back to owner.");
+    console.log("\nComplete: MPT escrow locked, finished to destination, and a second escrow canceled back to owner.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "4.1", error: e.message, code: e.code });
+  logFriction({ flow: "escrow/token-basics", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

@@ -1,18 +1,18 @@
-// Phase 2.3 — Gated Private Vault
+// Gated Private Vault
 //
 // Gate vault DEPOSITORS and SHARE HOLDERS by credential. A credentialed member
 // deposits successfully; a non-member is rejected with tecNO_AUTH.
 //
 // Scope (important): a private vault gates depositors and share ownership only.
 // LoanSet has NO DomainID or credential field, so the protocol does NOT gate loan
-// borrowers. Borrower eligibility is application logic. This phase does not claim
+// borrowers. Borrower eligibility is application logic. This flow does not claim
 // protocol borrower gating.
 //
-// Independence: this phase funds its own issuer, member, outsider, and vaultOwner,
+// Independence: this flow funds its own issuer, member, outsider, and vaultOwner,
 // and builds its own credential, domain, and private vault from the shared lib. It
-// imports no other phase.
+// imports no other flow.
 //
-// Run:  node part-2/2.3_gated_private_vault.mjs
+// Run:  node src/vault/gated-private.mjs
 
 import { convertStringToHex, VaultCreateFlags, dropsToXrp } from "xrpl";
 import {
@@ -107,20 +107,20 @@ async function main() {
       `outsider and unaccepted-credential holder were both denied.`);
     printLinks();
 
-    // Friction to capture (plan 2.3).
+    // Friction to capture.
     logFriction({
-      phase: "2.3", surface: "protocol", feature: "xls-65", tx_type: "LoanSet",
+      flow: "vault/gated-private", surface: "protocol", feature: "xls-65", tx_type: "LoanSet",
       note: "Private-vault gating covers depositors and share holders only. LoanSet has no DomainID/credential field, so borrowers are not gated by the protocol; borrower eligibility is application logic.",
     });
 
-    console.log("\nPhase 2.3 complete: credential-gated deposits enforced (tecNO_AUTH for non-members).");
+    console.log("\nComplete: credential-gated deposits enforced (tecNO_AUTH for non-members).");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "2.3", error: e.message, code: e.code });
+  logFriction({ flow: "vault/gated-private", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

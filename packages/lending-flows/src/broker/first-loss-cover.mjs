@@ -1,4 +1,4 @@
-// Phase 1.2 — Loan Broker and First-Loss Cover
+// Loan Broker and First-Loss Cover
 //
 // Create a loan broker on a funded vault, deposit first-loss cover, read the cover
 // parameters, then prove the cover-minimum guardrail: a CoverWithdraw that would
@@ -7,9 +7,9 @@
 // succeeds.
 //
 // Independence: builds its own vault, broker, and one outstanding loan via the
-// shared lib. It imports no other phase and reads no phase's state.
+// shared lib. It imports no other flow and reads no flow's state.
 //
-// Run:  node part-1/1.2_broker_and_first_loss_cover.mjs
+// Run:  node src/broker/first-loss-cover.mjs
 
 import {
   connect,
@@ -114,14 +114,14 @@ async function main() {
     console.log(`\nFirst-loss cover proven: ${dropsToXrp(requiredMin.toString())} XRP minimum ` +
       `(${coverRateMinimum / 1000}% of ${dropsToXrp(debtTotal.toString())} XRP debt) enforced on withdraw.`);
     printLinks();
-    console.log("\nPhase 1.2 complete: cover-minimum guardrail enforced; positive control passed.");
+    console.log("\nComplete: cover-minimum guardrail enforced; positive control passed.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "1.2", error: e.message, code: e.code });
+  logFriction({ flow: "broker/first-loss-cover", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

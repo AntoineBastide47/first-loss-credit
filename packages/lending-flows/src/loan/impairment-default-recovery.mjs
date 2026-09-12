@@ -1,4 +1,4 @@
-// Phase 1.4 — Impairment, Default, and Recovery
+// Impairment, Default, and Recovery
 //
 // Drive a loan through impairment and default and prove first-loss recovery: cover
 // is liquidated to the vault and the residual becomes a realized vault loss. Also
@@ -7,9 +7,9 @@
 //
 // Independence: builds its own funded vault, broker with cover, borrower, and one
 // short-interval loan via the shared lib, then lets it go overdue. It imports no
-// other phase and reads no phase's state.
+// other flow and reads no flow's state.
 //
-// Run:  node part-1/1.4_impairment_default_recovery.mjs   (waits ~2-3 min for windows)
+// Run:  node src/loan/impairment-default-recovery.mjs   (waits ~2-3 min for windows)
 
 import { LoanManageFlags } from "xrpl";
 import {
@@ -138,14 +138,14 @@ async function main() {
     console.log(`\nFirst-loss recovery proven: ${dropsToXrp(defaultCovered.toString())} XRP cover absorbed the` +
       ` first loss; ${dropsToXrp(realizedLoss.toString())} XRP residual hit senior lenders.`);
     printLinks();
-    console.log("\nPhase 1.4 complete: impair, default, first-loss recovery, and timing guards verified.");
+    console.log("\nComplete: impair, default, first-loss recovery, and timing guards verified.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "1.4", error: e.message, code: e.code });
+  logFriction({ flow: "loan/impairment-default-recovery", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

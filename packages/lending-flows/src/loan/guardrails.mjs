@@ -1,4 +1,4 @@
-// Phase 1.5 — Guardrail Gallery
+// Guardrail Gallery
 //
 // Reproduce each protocol guardrail rejection required by the hackathon bar, each as
 // an isolated case where all other preconditions pass so the failing reason is
@@ -11,9 +11,9 @@
 // withdraw below the minimum.
 //
 // Independence: every case builds its own substrate via the shared lib. It imports
-// no other phase and reads no phase's state; cases share no runtime state.
+// no other flow and reads no flow's state; cases share no runtime state.
 //
-// Run:  node part-1/1.5_guardrail_gallery.mjs   (case E waits ~60s for the overdue window)
+// Run:  node src/loan/guardrails.mjs   (case E waits ~60s for the overdue window)
 
 import { LoanPayFlags } from "xrpl";
 import {
@@ -196,14 +196,14 @@ async function main() {
     const passed = results.filter((r) => r.pass).length;
     console.log(`\nGuardrail gallery: ${passed}/${results.length} cases passed (fail code + positive control).`);
     if (passed !== results.length) throw new Error("not all guardrail cases passed");
-    console.log("Phase 1.5 complete: all protocol guardrails reproduced with positive controls.");
+    console.log("Complete: all protocol guardrails reproduced with positive controls.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "1.5", error: e.message, code: e.code });
+  logFriction({ flow: "loan/guardrails", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

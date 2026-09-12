@@ -1,4 +1,4 @@
-// Phase 4.2 — Application-Verified Collateralized Origination
+// Application-Verified Collateralized Origination
 //
 // Originate a loan backed by token collateral the borrower locks in escrow. The link
 // is APPLICATION-enforced: LoanSet does not verify any escrow and there is no protocol
@@ -8,11 +8,11 @@
 // There is no persistent on-chain link in either direction. LoanSet.Data is a
 // transaction breadcrumb only; the escrow<->loan mapping is kept in application state.
 //
-// Independence: this phase issues its own collateral token, funds a vault, creates a
+// Independence: this flow issues its own collateral token, funds a vault, creates a
 // broker with cover, locks collateral in escrow, then originates the loan. It imports
-// no other phase.
+// no other flow.
 //
-// Run:  node part-4/4.2_app_verified_collateralized_origination.mjs
+// Run:  node src/escrow/collateralized-origination.mjs
 
 import { convertStringToHex } from "xrpl";
 import {
@@ -141,24 +141,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 4.2).
+    // Friction to capture.
     logFriction({
-      phase: "4.2", surface: "protocol", feature: "escrow", tx_type: "LoanSet",
+      flow: "escrow/collateralized-origination", surface: "protocol", feature: "escrow", tx_type: "LoanSet",
       note: "No native escrow<->loan binding: LoanSet does not verify the escrow and the Loan object carries no escrow reference. The application must read the validated escrow and gate origination itself; the mapping lives in application state (and a LoanSet.Data breadcrumb), not on-chain.",
     });
     logFriction({
-      phase: "4.2", surface: "protocol", feature: "escrow", tx_type: "EscrowCreate",
+      flow: "escrow/collateralized-origination", surface: "protocol", feature: "escrow", tx_type: "EscrowCreate",
       note: `Collateral escrow Destination must be the broker owner, not the broker pseudo-account (its assets are protocol-governed and CoverAvailable would not rise). Loan object Data present: ${"Data" in loanObj}.`,
     });
 
-    console.log("\nPhase 4.2 complete: application-verified collateral gate enforced before a loan with no on-chain escrow link.");
+    console.log("\nComplete: application-verified collateral gate enforced before a loan with no on-chain escrow link.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "4.2", error: e.message, code: e.code });
+  logFriction({ flow: "escrow/collateralized-origination", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

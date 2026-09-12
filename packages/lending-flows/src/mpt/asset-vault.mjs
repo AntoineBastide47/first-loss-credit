@@ -1,4 +1,4 @@
-// Phase 3.2 — MPT-Asset Vault
+// MPT-Asset Vault
 //
 // Create a Single Asset Vault whose asset is an MPT, deposit and withdraw the MPT,
 // and confirm the forced-scale behavior: an MPT vault's share Scale is 0 and the
@@ -9,10 +9,10 @@
 // AssetScale. The Asset field carries identity only ({ mpt_issuance_id }, no value);
 // the deposit/withdraw Amount carries the value ({ mpt_issuance_id, value }).
 //
-// Independence: this phase issues its own MPT via the shared MPT builder, authorizes
-// the lender, and builds the vault. It imports no other phase.
+// Independence: this flow issues its own MPT via the shared MPT builder, authorizes
+// the lender, and builds the vault. It imports no other flow.
 //
-// Run:  node part-3/3.2_mpt_asset_vault.mjs
+// Run:  node src/mpt/asset-vault.mjs
 
 import { validate } from "xrpl";
 import { connect, fundAccounts, submitAndWait, readVault, logFriction } from "../lib/index.mjs";
@@ -104,24 +104,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 3.2).
+    // Friction to capture.
     logFriction({
-      phase: "3.2", surface: "sdk", feature: "xls-65", tx_type: "VaultCreate",
+      flow: "mpt/asset-vault", surface: "sdk", feature: "xls-65", tx_type: "VaultCreate",
       note: "For an MPT asset, Scale must be ABSENT, not 0. Sending Scale (even 0) throws client-side 'Scale parameter must not be provided for XRP or MPT assets'; it is not normalized. Discovered by the rejected validation, not from an obvious doc note.",
     });
     logFriction({
-      phase: "3.2", surface: "sdk", feature: "xls-33", tx_type: "VaultDeposit",
+      flow: "mpt/asset-vault", surface: "sdk", feature: "xls-33", tx_type: "VaultDeposit",
       note: "Vault Asset is identity only: { mpt_issuance_id } with NO value. The deposit/withdraw Amount is { mpt_issuance_id, value }. The two shapes differ and mixing them is easy.",
     });
 
-    console.log("\nPhase 3.2 complete: MPT-asset vault with Scale 0; deposit and withdraw round-trip the MPT.");
+    console.log("\nComplete: MPT-asset vault with Scale 0; deposit and withdraw round-trip the MPT.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "3.2", error: e.message, code: e.code });
+  logFriction({ flow: "mpt/asset-vault", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

@@ -1,5 +1,5 @@
-// Shared, non-phase helpers for the first-loss-credit plan.
-// No phase-specific state lives here. Every phase may call these.
+// Shared helpers for the lending flows.
+// No flow-specific state lives here. Every flow may call these.
 //
 // Network: the Lending Hackathon devnet. XLS-65/66 amendments (SingleAssetVault,
 // LendingProtocol, LendingProtocolV1_1, PermissionedDomains, TokenEscrow,

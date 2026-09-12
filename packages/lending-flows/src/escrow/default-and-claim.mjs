@@ -1,4 +1,4 @@
-// Phase 4.3 — Default and Collateral Claim
+// Default and Collateral Claim
 //
 // Default a collateralized loan and claim the token collateral from escrow. The two
 // are SEPARATE, non-atomic transactions: LoanManage default does not release the
@@ -6,10 +6,10 @@
 // Fulfillment the broker reveals only on default approximates broker control, but this
 // is application-enforced, not protocol-enforced.
 //
-// Independence: this phase builds its own collateral token, escrow, vault, broker with
-// cover, and one short loan, then lets it default. It imports no other phase.
+// Independence: this flow builds its own collateral token, escrow, vault, broker with
+// cover, and one short loan, then lets it default. It imports no other flow.
 //
-// Run:  node part-4/4.3_default_and_collateral_claim.mjs   (waits ~2-3 min for windows)
+// Run:  node src/escrow/default-and-claim.mjs   (waits ~2-3 min for windows)
 
 import { LoanManageFlags } from "xrpl";
 import {
@@ -146,24 +146,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 4.3).
+    // Friction to capture.
     logFriction({
-      phase: "4.3", surface: "protocol", feature: "escrow", tx_type: "LoanManage",
+      flow: "escrow/default-and-claim", surface: "protocol", feature: "escrow", tx_type: "LoanManage",
       note: "Default and recovery are non-atomic: LoanManage default liquidates first-loss cover to the vault but does NOT release the collateral escrow. Recovery is a separate EscrowFinish the application must coordinate.",
     });
     logFriction({
-      phase: "4.3", surface: "protocol", feature: "escrow", tx_type: "EscrowFinish",
+      flow: "escrow/default-and-claim", surface: "protocol", feature: "escrow", tx_type: "EscrowFinish",
       note: `Escrow release cannot be gated on default: once FinishAfter passes, anyone can finish regardless of loan status. A crypto-Condition whose Fulfillment the broker reveals only on default approximates control (wrong fulfillment -> ${badFinish.code}), but it is application-enforced, not protocol-enforced.`,
     });
 
-    console.log("\nPhase 4.3 complete: loan defaulted (first-loss cover liquidated), collateral claimed via a separate EscrowFinish.");
+    console.log("\nComplete: loan defaulted (first-loss cover liquidated), collateral claimed via a separate EscrowFinish.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "4.3", error: e.message, code: e.code });
+  logFriction({ flow: "escrow/default-and-claim", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

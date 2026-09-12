@@ -1,9 +1,9 @@
-// Shared, phase-agnostic building blocks for the lending flow.
+// Shared building blocks for the lending flows.
 //
 // These compose the generic primitives in ./index.mjs into the protocol objects a
 // lending scenario needs: a vault, a deposit, a broker, cover, and a dual-signed
-// loan. They belong to no phase. A phase imports them like any library; it never
-// imports another phase, and nothing here depends on any phase.
+// loan. They belong to no flow. A flow imports them like any library; it never
+// imports another flow, and nothing here depends on any flow.
 
 import { VaultWithdrawalPolicy, signLoanSetByCounterparty } from "xrpl";
 import { submitAndWait, readVault, explorer } from "./index.mjs";

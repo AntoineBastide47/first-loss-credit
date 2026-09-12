@@ -1,8 +1,8 @@
-// Phase 2.1 — Credential Issuance
+// Credential Issuance
 //
 // Issue a credential from an issuer to a subject (CredentialCreate), then have the
 // subject accept it (CredentialAccept). This is the membership primitive that gates
-// vault depositors in later Part 2 phases.
+// vault depositors in later flows.
 //
 // Design (verified): CredentialCreate issues ONE credential instance to ONE subject.
 // It does NOT define a reusable credential type; CredentialType is a hex label
@@ -10,10 +10,10 @@
 // (Issuer, Subject, CredentialType). It is created unaccepted; CredentialAccept sets
 // the lsfAccepted flag. Only an accepted credential satisfies a permissioned domain.
 //
-// Independence: this phase funds its own issuer and subject and ends with an accepted
-// credential it hands to no other phase. It imports no other phase.
+// Independence: this flow funds its own issuer and subject and ends with an accepted
+// credential it hands to no other flow. It imports no other flow.
 //
-// Run:  node part-2/2.1_credential_issuance.mjs
+// Run:  node src/credentials/issuance.mjs
 
 import { convertStringToHex } from "xrpl";
 import { connect, fundAccounts, logFriction } from "../lib/index.mjs";
@@ -81,24 +81,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 2.1).
+    // Friction to capture.
     logFriction({
-      phase: "2.1", surface: "docs", feature: "credentials", tx_type: "CredentialCreate",
+      flow: "credentials/issuance", surface: "docs", feature: "credentials", tx_type: "CredentialCreate",
       note: "CredentialCreate issues one instance per subject; CredentialType is a label on the instance, not a separate reusable type object. No type object is created.",
     });
     logFriction({
-      phase: "2.1", surface: "sdk", feature: "credentials", tx_type: "CredentialCreate",
+      flow: "credentials/issuance", surface: "sdk", feature: "credentials", tx_type: "CredentialCreate",
       note: "CredentialType and URI must be hex-encoded; xrpl.js validation rejects raw ASCII with 'must be encoded in hex'. convertStringToHex handles it.",
     });
 
-    console.log("\nPhase 2.1 complete: credential issued and accepted (lsfAccepted set).");
+    console.log("\nComplete: credential issued and accepted (lsfAccepted set).");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "2.1", error: e.message, code: e.code });
+  logFriction({ flow: "credentials/issuance", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

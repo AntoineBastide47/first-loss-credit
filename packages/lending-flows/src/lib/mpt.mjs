@@ -1,6 +1,6 @@
-// Shared, phase-agnostic builders for XLS-33 Multi-Purpose Tokens (MPTs). These
-// belong to no phase; a phase imports them like any library and never imports
-// another phase.
+// Shared builders for XLS-33 Multi-Purpose Tokens (MPTs). These
+// belong to no flow; a flow imports them like any library and never imports
+// another flow.
 
 import { MPTokenIssuanceCreateFlags } from "xrpl";
 import { submitAndWait } from "./index.mjs";

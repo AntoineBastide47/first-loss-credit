@@ -1,6 +1,6 @@
-// Shared, phase-agnostic builders for XLS-70 Credentials and XLS-80 Permissioned
+// Shared builders for XLS-70 Credentials and XLS-80 Permissioned
 // Domains: the membership primitives that gate vault depositors. These belong to no
-// phase. A phase imports them like any library; it never imports another phase.
+// flow. A flow imports them like any library; it never imports another flow.
 
 import { submitAndWait, readLedgerEntry } from "./index.mjs";
 import { createdIndex } from "./lending.mjs";

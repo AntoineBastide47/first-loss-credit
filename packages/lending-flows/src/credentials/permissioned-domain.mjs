@@ -1,19 +1,19 @@
-// Phase 2.2 — Permissioned Domain
+// Permissioned Domain
 //
 // Create a permissioned domain that accepts a credential, then prove membership
 // STANDALONE: a subject holding an accepted matching credential is a domain member,
-// a non-holder is not. No gated action and no other phase is used for the proof.
+// a non-holder is not. No gated action and no other flow is used for the proof.
 //
 // Design (verified): PermissionedDomainSet.AcceptedCredentials is a list of WRAPPED
 // entries, [{ Credential: { Issuer, CredentialType } }]. The flat { Issuer,
 // CredentialType } form fails validation. Membership = holding an ACCEPTED credential
 // matching one entry in the list.
 //
-// Independence: this phase funds its own issuer, member, and outsider, issues and
+// Independence: this flow funds its own issuer, member, and outsider, issues and
 // accepts the member's credential via the shared credential builder, and proves
-// membership by itself. It imports no other phase.
+// membership by itself. It imports no other flow.
 //
-// Run:  node part-2/2.2_permissioned_domain.mjs
+// Run:  node src/credentials/permissioned-domain.mjs
 
 import { convertStringToHex } from "xrpl";
 import { connect, fundAccounts, logFriction } from "../lib/index.mjs";
@@ -47,7 +47,7 @@ async function main() {
     const credentialType = convertStringToHex("KYC_ACCREDITED");
     console.log(`  CredentialType=KYC_ACCREDITED -> ${credentialType}`);
 
-    // Precondition: issue and accept the member's credential (reuses the 2.1 procedure).
+    // Precondition: issue and accept the member's credential (reuses the credential issue-and-accept procedure).
     const cred = await issueAcceptedCredential(client, {
       issuer, subject: member, credentialType,
     });
@@ -96,24 +96,24 @@ async function main() {
 
     printLinks();
 
-    // Friction to capture (plan 2.2).
+    // Friction to capture.
     logFriction({
-      phase: "2.2", surface: "sdk", feature: "permissioned-domains", tx_type: "PermissionedDomainSet",
+      flow: "credentials/permissioned-domain", surface: "sdk", feature: "permissioned-domains", tx_type: "PermissionedDomainSet",
       note: "AcceptedCredentials requires the wrapped { Credential: { Issuer, CredentialType } } form; the flat { Issuer, CredentialType } fails xrpl.js validation. Not obvious without the model.",
     });
     logFriction({
-      phase: "2.2", surface: "protocol", feature: "permissioned-domains", tx_type: null,
+      flow: "credentials/permissioned-domain", surface: "protocol", feature: "permissioned-domains", tx_type: null,
       note: "Membership is readable directly: the PermissionedDomain object lists accepted (Issuer, CredentialType) and the Credential object carries the accepted flag. No gated action is needed to confirm it.",
     });
 
-    console.log("\nPhase 2.2 complete: domain accepts the credential; member qualifies, outsider does not.");
+    console.log("\nComplete: domain accepts the credential; member qualifies, outsider does not.");
   } finally {
     await client.disconnect();
   }
 }
 
 main().catch((e) => {
-  logFriction({ phase: "2.2", error: e.message, code: e.code });
+  logFriction({ flow: "credentials/permissioned-domain", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);

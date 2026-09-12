@@ -1,4 +1,4 @@
-// Phase 1.3 — Loan Origination and Repayment
+// Loan Origination and Repayment
 //
 // Originate a loan with the dual-signature LoanSet, confirm the borrower receives
 // principal minus the origination fee INSIDE LoanSet (no separate draw), then run
@@ -10,9 +10,9 @@
 // NOT at origination. AssetsTotal is unchanged at LoanSet.
 //
 // Independence: builds its own funded vault, broker with cover, and its loans via
-// the shared lib. It imports no other phase and reads no phase's state.
+// the shared lib. It imports no other flow and reads no flow's state.
 //
-// Run:  node part-1/1.3_loan_origination_and_repayment.mjs
+// Run:  node src/loan/origination-and-repayment.mjs
 
 import { LoanPayFlags } from "xrpl";
 import {
@@ -145,7 +145,7 @@ async function main() {
     console.log(`  plain final payment tesSUCCESS`);
 
     printLinks();
-    console.log("\nPhase 1.3 complete: dual-signed origination, cash-basis accounting, and " +
+    console.log("\nComplete: dual-signed origination, cash-basis accounting, and " +
       "tfLoanFullPayment rules verified.");
   } finally {
     await client.disconnect();
@@ -153,7 +153,7 @@ async function main() {
 }
 
 main().catch((e) => {
-  logFriction({ phase: "1.3", error: e.message, code: e.code });
+  logFriction({ flow: "loan/origination-and-repayment", error: e.message, code: e.code });
   console.error("\nFAILED:", e.message);
   if (e.res?.result?.meta) console.error(JSON.stringify(e.res.result.meta, null, 2));
   process.exit(1);
