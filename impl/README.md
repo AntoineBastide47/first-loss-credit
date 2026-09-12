@@ -60,6 +60,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   - `4.2_app_verified_collateralized_origination.mjs` — collateral locked in escrow to the broker
     owner; application gate verifies the validated escrow before LoanSet; no on-chain escrow<->loan
     link (Loan object does not expose Data); mapping kept in application state.
+  - `4.3_default_and_collateral_claim.mjs` — LoanManage default (first-loss cover liquidated) then a
+    SEPARATE EscrowFinish claims collateral to owner; non-atomic, release not gated on default;
+    wrong fulfillment tecCRYPTOCONDITION_ERROR.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
