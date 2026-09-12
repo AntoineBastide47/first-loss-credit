@@ -10,6 +10,11 @@ export const NETWORKS = {
     wss: "wss://lending-hackathon.dev.ripplex.io:51233",
     faucet: "https://lending-hackathon-faucet.dev.ripplex.io/accounts",
     explorer: "https://custom.xrpl.org/lending-hackathon.dev.ripplex.io:51233",
+    // WalletConnect CAIP-2 chain for signing. The custom devnet has no standard
+    // chain id; the XRPL Dev Wallet's manual/custom network advertises "xrpl:0", and
+    // WalletConnect v2 approves a session only for the wallet's own chain (it drops
+    // requiredNamespaces), so the app must request that same id or request() rejects.
+    walletConnectId: "xrpl:0",
   },
   ALPHANET: {
     id: "alphanet",

@@ -17,7 +17,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../..
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Button } from "../../components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Info } from "lucide-react";
 
@@ -76,7 +75,7 @@ export default function LenderPage() {
 
   const [depositAmount, setDepositAmount] = useState("");
   const [redeemShares, setRedeemShares] = useState("");
-  const [withdrawAssets, setWithdrawAssets] = useState("");
+  const [redeemYield, setRedeemYield] = useState(true);
 
   const depositAmountRef = useRef("");
   const redeemStartSharesRef = useRef("0");
@@ -176,7 +175,6 @@ export default function LenderPage() {
           saveBasis(vaultId, address, next);
         }
         setRedeemShares("");
-        setWithdrawAssets("");
       }
     },
     [vaultId, address, refresh],
@@ -195,7 +193,12 @@ export default function LenderPage() {
 
   const redeemSharesValid = /^\d+$/.test(redeemShares) && redeemShares !== "";
   const redeemSharesBig = redeemSharesValid ? BigInt(redeemShares) : 0n;
-  const redeemImpliedAssets = vault && redeemSharesValid ? redeemableAssets(vault, redeemSharesBig) : 0n;
+  // Full value (principal + yield) for the shares, or par principal only. With the
+  // "also redeem yield" box off, the withdraw is an asset amount equal to the shares'
+  // par value, so the accrued yield stays deposited. The payout amount drives the
+  // liquidity check.
+  const redeemFullValue = vault && redeemSharesValid ? redeemableAssets(vault, redeemSharesBig) : 0n;
+  const redeemImpliedAssets = redeemYield ? redeemFullValue : redeemSharesBig;
   const redeemExceedsBalance = redeemSharesValid && redeemSharesBig > sharesBig;
   const redeemBlockedByLiquidity = redeemSharesValid && redeemImpliedAssets > assetsAvailable;
   const redeemDisabled =
@@ -205,11 +208,6 @@ export default function LenderPage() {
     redeemSharesBig === 0n ||
     redeemExceedsBalance ||
     redeemBlockedByLiquidity;
-
-  const withdrawValid = /^\d+$/.test(withdrawAssets) && withdrawAssets !== "";
-  const withdrawBig = withdrawValid ? BigInt(withdrawAssets) : 0n;
-  const withdrawBlockedByLiquidity = withdrawValid && withdrawBig > assetsAvailable;
-  const withdrawDisabled = !isConnected || !vault || !withdrawValid || withdrawBig === 0n || withdrawBlockedByLiquidity;
 
   const depositValid = /^\d+$/.test(depositAmount) && depositAmount !== "" && depositAmount !== "0";
   const depositDisabled = !isConnected || !vault || !depositValid;
@@ -363,104 +361,79 @@ export default function LenderPage() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Redeem</CardTitle>
-                    <CardDescription>Share amount redeems full value; asset amount leaves yield behind.</CardDescription>
+                    <CardDescription>Redeem shares for XRP. Leave the box unticked to keep the accrued yield deposited.</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Tabs defaultValue="shares">
-                      <TabsList>
-                        <TabsTrigger value="shares">Shares (full value)</TabsTrigger>
-                        <TabsTrigger value="assets">XRP (leaves yield)</TabsTrigger>
-                      </TabsList>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="redeem-shares">Shares to redeem</Label>
+                        <button
+                          type="button"
+                          className="text-xs underline text-muted-foreground"
+                          onClick={() => setRedeemShares(shares)}
+                        >
+                          Max ({groupThousands(shares)})
+                        </button>
+                      </div>
+                      <Input
+                        id="redeem-shares"
+                        inputMode="numeric"
+                        value={redeemShares}
+                        onChange={(e) => setRedeemShares(e.target.value.trim())}
+                        placeholder="e.g. 1000000"
+                      />
+                    </div>
 
-                      <TabsContent value="shares" className="space-y-3">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="redeem-shares">Shares to redeem</Label>
-                            <button
-                              type="button"
-                              className="text-xs underline text-muted-foreground"
-                              onClick={() => setRedeemShares(shares)}
-                            >
-                              Redeem all ({groupThousands(shares)})
-                            </button>
-                          </div>
-                          <Input
-                            id="redeem-shares"
-                            inputMode="numeric"
-                            value={redeemShares}
-                            onChange={(e) => setRedeemShares(e.target.value.trim())}
-                            placeholder="e.g. 20000000"
-                          />
-                          {redeemSharesValid && (
-                            <p className="text-xs text-muted-foreground">
-                              = {groupThousands(formatDrops(redeemImpliedAssets.toString()))} XRP at the current
-                              redeem rate
-                            </p>
-                          )}
-                          {redeemExceedsBalance && (
-                            <p className="text-xs text-destructive">
-                              You hold only {groupThousands(shares)} shares.
-                            </p>
-                          )}
-                          {redeemBlockedByLiquidity && (
-                            <p className="text-xs text-destructive">
-                              Vault liquidity is insufficient right now (AssetsAvailable is below the value this
-                              would pay out &mdash; a liquidity limit, not a balance limit). Try a smaller amount
-                              or wait for repayments.
-                            </p>
-                          )}
-                        </div>
-                        <TxButton
-                          label="Redeem shares"
-                          disabled={redeemDisabled}
-                          tx={() => {
-                            redeemStartSharesRef.current = shares;
-                            return {
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={redeemYield}
+                        onChange={(e) => setRedeemYield(e.target.checked)}
+                      />
+                      Also redeem accrued yield (full value)
+                    </label>
+
+                    {redeemSharesValid && (
+                      <p className="text-xs text-muted-foreground">
+                        You receive &asymp; {groupThousands(formatDrops(redeemImpliedAssets.toString()))} XRP
+                        {redeemYield ? " (principal + yield)" : " (principal only; yield stays deposited)"}
+                      </p>
+                    )}
+                    {redeemExceedsBalance && (
+                      <p className="text-xs text-destructive">You hold only {groupThousands(shares)} shares.</p>
+                    )}
+                    {redeemBlockedByLiquidity && (
+                      <p className="text-xs text-destructive">
+                        Vault liquidity is insufficient right now (AssetsAvailable is below the payout &mdash; a
+                        liquidity limit, not a balance limit). Try a smaller amount or wait for repayments.
+                      </p>
+                    )}
+
+                    <TxButton
+                      label="Redeem"
+                      disabled={redeemDisabled}
+                      tx={() => {
+                        redeemStartSharesRef.current = shares;
+                        // Ticked: redeem the shares at full value (share MPT amount).
+                        // Unticked: withdraw their par principal as an asset amount, so
+                        // the accrued yield stays in the vault.
+                        return redeemYield
+                          ? {
                               TransactionType: "VaultWithdraw",
                               Account: address,
                               VaultID: vaultId,
                               Amount: { mpt_issuance_id: vault.ShareMPTID, value: redeemShares },
-                            };
-                          }}
-                          onResult={onRedeemResult}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="assets" className="space-y-3">
-                        <AmountInput
-                          id="withdraw-assets"
-                          label="Withdraw amount (drops)"
-                          value={withdrawAssets}
-                          onChange={setWithdrawAssets}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Pays out exactly this asset amount and burns only the shares needed &mdash; any share
-                          value above what you request stays deposited. Use the share-amount tab to take the
-                          full redemption value.
-                        </p>
-                        {withdrawBlockedByLiquidity && (
-                          <p className="text-xs text-destructive">
-                            Vault liquidity is insufficient right now (AssetsAvailable is below this amount &mdash;
-                            a liquidity limit, not a balance limit). Try a smaller amount or wait for repayments.
-                          </p>
-                        )}
-                        <TxButton
-                          label="Withdraw XRP"
-                          variant="outline"
-                          disabled={withdrawDisabled}
-                          tx={() => {
-                            redeemStartSharesRef.current = shares;
-                            return {
+                            }
+                          : {
                               TransactionType: "VaultWithdraw",
                               Account: address,
                               VaultID: vaultId,
-                              Amount: withdrawAssets,
+                              Amount: redeemSharesBig.toString(),
                             };
-                          }}
-                          onResult={onRedeemResult}
-                        />
-                      </TabsContent>
-                    </Tabs>
+                      }}
+                      onResult={onRedeemResult}
+                    />
                   </CardContent>
                 </Card>
               </section>

@@ -71,7 +71,12 @@ export function useWalletManager() {
           // "devnet") is passed through by xrpl-connect as-is, so this points
           // signing at the hackathon devnet instead of public Testnet — every
           // VaultID/LoanBrokerID/LoanID this app reads only exists there.
-          network: { id: DEFAULT_NETWORK.id, name: DEFAULT_NETWORK.name, wss: DEFAULT_NETWORK.wss },
+          network: {
+            id: DEFAULT_NETWORK.id,
+            name: DEFAULT_NETWORK.name,
+            wss: DEFAULT_NETWORK.wss,
+            walletConnectId: DEFAULT_NETWORK.walletConnectId,
+          },
           autoConnect: true,
           logger: { level: "info" },
         });
