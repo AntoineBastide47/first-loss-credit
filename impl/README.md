@@ -47,6 +47,8 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 - `part-3/` — Part 3 (MPTs), verified live on-chain:
   - `3.1_mpt_issuance.mjs` — MPTokenIssuanceCreate (CanTransfer + RequireAuth + CanEscrow);
     two-step auth (holder opt-in + issuer authorize); positive balance only after both steps.
+  - `3.2_mpt_asset_vault.mjs` — Single Asset Vault over an MPT; Scale omitted (reads 0); MPT
+    deposit/withdraw round-trip; explicit Scale on an MPT asset rejected client-side.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).

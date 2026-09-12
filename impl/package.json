@@ -13,7 +13,8 @@
     "2.1": "node part-2/2.1_credential_issuance.mjs",
     "2.2": "node part-2/2.2_permissioned_domain.mjs",
     "2.3": "node part-2/2.3_gated_private_vault.mjs",
-    "3.1": "node part-3/3.1_mpt_issuance.mjs"
+    "3.1": "node part-3/3.1_mpt_issuance.mjs",
+    "3.2": "node part-3/3.2_mpt_asset_vault.mjs"
   },
   "dependencies": {
     "xrpl": "5.2.0-beta.1"
