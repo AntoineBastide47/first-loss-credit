@@ -24,6 +24,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 - `lib/lending.mjs` — phase-agnostic protocol builders (createVault, vaultDeposit, createBroker,
   depositCover, signedLoanSet, originateLoan) + metadata/run-log helpers. Phases compose these;
   no phase re-implements setup and no phase imports another phase.
+- `lib/credentials.mjs` — phase-agnostic XLS-70/80 membership builders (createCredential,
+  acceptCredential, issueAcceptedCredential, readCredential, isAccepted, setPermissionedDomain,
+  acceptedCredential, readPermissionedDomain).
 - `part-1/` — Part 1 (Vanilla), all verified live on-chain:
   - `1.1_vault_lifecycle_and_yield.mjs` — vault lifecycle + real yield.
   - `1.2_broker_and_first_loss_cover.mjs` — broker + first-loss cover minimum.
@@ -33,6 +36,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 - `part-2/` — Part 2 (Permissioned Domains + Credentials), verified live on-chain:
   - `2.1_credential_issuance.mjs` — CredentialCreate + CredentialAccept; one instance per subject,
     keyed by (Issuer, Subject, CredentialType), lsfAccepted set only after accept.
+  - `2.2_permissioned_domain.mjs` — PermissionedDomainSet with the wrapped
+    `{ Credential: { Issuer, CredentialType } }` accepted list; standalone membership proof
+    (member qualifies, outsider does not).
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).

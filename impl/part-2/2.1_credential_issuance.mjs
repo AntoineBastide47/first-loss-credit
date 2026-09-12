@@ -16,32 +16,14 @@
 // Run:  node part-2/2.1_credential_issuance.mjs
 
 import { convertStringToHex } from "xrpl";
-import {
-  connect,
-  fundAccounts,
-  submitAndWait,
-  logFriction,
-} from "../lib/index.mjs";
+import { connect, fundAccounts, logFriction } from "../lib/index.mjs";
 import { assert, makeRecorder } from "../lib/lending.mjs";
-
-// Credential ledger object flag (ripple-binary-codec: lsfAccepted = 65536). Set by
-// CredentialAccept; unset on the object CredentialCreate first writes.
-const LSF_ACCEPTED = 0x00010000;
-
-/** Read the Credential object keyed by (issuer, subject, credentialType), or null. */
-async function readCredential(client, { issuer, subject, credentialType }) {
-  try {
-    const { result } = await client.request({
-      command: "ledger_entry",
-      credential: { issuer, subject, credential_type: credentialType },
-      ledger_index: "validated",
-    });
-    return result.node;
-  } catch (e) {
-    if (e?.data?.error === "entryNotFound") return null;
-    throw e;
-  }
-}
+import {
+  createCredential,
+  acceptCredential,
+  readCredential,
+  isAccepted,
+} from "../lib/credentials.mjs";
 
 async function main() {
   const client = await connect();
@@ -60,13 +42,7 @@ async function main() {
     console.log(`  CredentialType=KYC_ACCREDITED -> ${credentialType}`);
 
     // Step 1: CredentialCreate (issuer -> subject).
-    const create = await submitAndWait(client, {
-      TransactionType: "CredentialCreate",
-      Account: issuer.address,
-      Subject: subject.address,
-      CredentialType: credentialType,
-      URI: uri,
-    }, issuer);
+    const create = await createCredential(client, issuer, { subject, credentialType, uri });
     record("CredentialCreate", create.hash);
 
     // The instance exists immediately, keyed by (Issuer, Subject, CredentialType),
@@ -78,16 +54,11 @@ async function main() {
     assert(beforeAccept.Issuer === issuer.address, "Credential.Issuer == issuer");
     assert(beforeAccept.Subject === subject.address, "Credential.Subject == subject");
     assert(beforeAccept.CredentialType === credentialType, "Credential.CredentialType == label");
-    assert((Number(beforeAccept.Flags ?? 0) & LSF_ACCEPTED) === 0,
+    assert(!isAccepted(beforeAccept),
       "Credential is unaccepted before CredentialAccept (lsfAccepted clear)");
 
     // Step 2: CredentialAccept (subject).
-    const accept = await submitAndWait(client, {
-      TransactionType: "CredentialAccept",
-      Account: subject.address,
-      Issuer: issuer.address,
-      CredentialType: credentialType,
-    }, subject);
+    const accept = await acceptCredential(client, subject, { issuer, credentialType });
     record("CredentialAccept", accept.hash);
 
     // The same object is now accepted.
@@ -95,7 +66,7 @@ async function main() {
       issuer: issuer.address, subject: subject.address, credentialType,
     });
     assert(afterAccept !== null, "Credential object still exists after CredentialAccept");
-    assert((Number(afterAccept.Flags ?? 0) & LSF_ACCEPTED) !== 0,
+    assert(isAccepted(afterAccept),
       "Credential is accepted after CredentialAccept (lsfAccepted set)");
 
     console.log("\nAccepted Credential object:");

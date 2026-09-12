@@ -10,7 +10,8 @@
     "1.3": "node part-1/1.3_loan_origination_and_repayment.mjs",
     "1.4": "node part-1/1.4_impairment_default_recovery.mjs",
     "1.5": "node part-1/1.5_guardrail_gallery.mjs",
-    "2.1": "node part-2/2.1_credential_issuance.mjs"
+    "2.1": "node part-2/2.1_credential_issuance.mjs",
+    "2.2": "node part-2/2.2_permissioned_domain.mjs"
   },
   "dependencies": {
     "xrpl": "5.2.0-beta.1"
