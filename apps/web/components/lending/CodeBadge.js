@@ -4,7 +4,7 @@ import { Badge } from "../ui/badge";
 
 // Render an XRPL engine result code. tesSUCCESS is success; tec/tem/tef/tel codes
 // are failures (destructive); anything else is neutral. The raw code is always
-// shown (never hidden), per the Part 6 rule.
+// shown (never hidden).
 function variantFor(code) {
   if (code === "tesSUCCESS") return "success";
   if (/^te[cmfl]/.test(code || "")) return "destructive";

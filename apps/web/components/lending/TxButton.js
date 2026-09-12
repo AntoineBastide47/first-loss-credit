@@ -5,14 +5,13 @@ import { useWallet } from "../providers/WalletProvider";
 import { getClient, explorerUrl } from "../../lib/xrpl-client";
 import { Button } from "../ui/button";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { CodeBadge } from "./CodeBadge";
 import { CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 
-// Shared write button for every Part 6 screen. It signs `tx` through the connected
+// Shared write button for every screen. It signs `tx` through the connected
 // wallet, waits for a validated ledger, then shows the engine result code, an
 // explorer link, and a plain-language cause (every write shows its result, incl.
-// tec rejections). `explain` is injected by the guardrail explainer (6.5); absent,
-// only the raw code is shown, so this foundation does not depend on a later phase.
+// tec rejections). `explain` maps a result code to a plain cause; absent,
+// only the raw code is shown, so this foundation is self-contained.
 //
 // `tx` is a transaction object or a () => object builder. `onResult({ code, hash,
 // meta })` fires after a validated result for read-after-write refresh.
@@ -54,7 +53,8 @@ export function TxButton({
     setBusy(true);
     setOutcome(null);
     try {
-      const transaction = typeof tx === "function" ? tx() : tx;
+      const built = typeof tx === "function" ? tx() : tx;
+      const transaction = built && typeof built.then === "function" ? await built : built;
       const submitted = await walletManager.signAndSubmit(transaction);
       const hash = submitted.hash || submitted.id;
       // tec rejections are applied (claimed fee) and validate with a tec code; only
@@ -71,7 +71,8 @@ export function TxButton({
   };
 
   const success = outcome?.code === "tesSUCCESS";
-  const info = outcome?.code && explain ? explain(outcome.txType, outcome.code, context) : null;
+  const rawInfo = outcome?.code && explain ? explain(outcome.txType, outcome.code, context) : null;
+  const reason = typeof rawInfo === "string" ? rawInfo : rawInfo?.cause;
 
   return (
     <div className="space-y-2">
@@ -95,25 +96,17 @@ export function TxButton({
       {outcome?.code && (
         <Alert variant={success ? "success" : "destructive"}>
           {success ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-          <AlertTitle className="flex items-center gap-2">
-            <CodeBadge code={outcome.code} />
-            {info?.title}
-          </AlertTitle>
+          <AlertTitle>{success ? "Confirmed" : "Didn’t go through"}</AlertTitle>
           <AlertDescription className="space-y-1">
-            {info && (
-              <>
-                <p>{info.cause}</p>
-                {info.fix && <p className="text-muted-foreground">Fix: {info.fix}</p>}
-              </>
-            )}
+            {!success && <p>{reason || "Something went wrong. Please try again."}</p>}
             {outcome.hash && (
               <a
                 href={explorerUrl(outcome.hash)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs underline"
+                className="inline-flex items-center gap-1 text-xs underline opacity-70"
               >
-                View on explorer <ExternalLink className="h-3 w-3" />
+                Receipt <ExternalLink className="h-3 w-3" />
               </a>
             )}
           </AlertDescription>

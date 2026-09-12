@@ -2,8 +2,8 @@
 
 // Dev-only demo seeder. Builds a vault + broker + loan on the devnet so a screen
 // has something to read when no ids are supplied. It is infrastructure, not a
-// phase: it builds the same protocol shapes a screen would, and no screen imports
-// another phase to obtain ids. Gate it behind the `?demo` flag (isDemoEnabled).
+// infrastructure: it builds the same protocol shapes a screen would, and no screen imports
+// another to obtain ids. Gate it behind the `?demo` flag (isDemoEnabled).
 //
 // Secrets: the faucet returns funded account secrets. They are built into in-memory
 // Wallets and used only on the local signing path; they are never logged or sent

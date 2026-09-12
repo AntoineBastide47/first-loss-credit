@@ -1,6 +1,6 @@
 "use client";
 
-// Single shared read client for the lending devnet. Every Part 6 screen reads
+// Single shared read client for the lending devnet. Every screen reads
 // through getClient(); writes go through the connected wallet (see TxButton).
 // The client is created once per browser tab and reused. xrpl.js reconnects on a
 // dropped socket on its own; if connect() itself fails, the cached promise is
