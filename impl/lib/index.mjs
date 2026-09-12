@@ -188,6 +188,26 @@ function sleep(ms) {
 }
 
 /**
+ * Wait until a validated ledger's close time is strictly greater than `rippleTime`
+ * (seconds since the Ripple epoch, 2000-01-01), then return that close time. Used
+ * for loan impair/default windows, which gate on ledger time, not ledger count.
+ * Bounded by `maxSeconds` (default 240s) of real wait.
+ */
+export async function waitUntilAfter(client, rippleTime, maxSeconds = 240) {
+  const deadline = Date.now() + maxSeconds * 1000;
+  for (let guard = 0; guard < 10000; guard += 1) {
+    const { result } = await client.request({ command: "ledger", ledger_index: "validated" });
+    const closeTime = result.ledger.close_time;
+    if (closeTime > rippleTime) return closeTime;
+    if (Date.now() > deadline) {
+      throw new Error(`waitUntilAfter: ledger time ${closeTime} did not pass ${rippleTime} in ${maxSeconds}s`);
+    }
+    await sleep(2000);
+  }
+  throw new Error("waitUntilAfter: guard exceeded");
+}
+
+/**
  * Round a high-precision loan figure UP to a whole asset base unit.
  *
  * Verified on the hackathon network: loan fields (PeriodicPayment,
