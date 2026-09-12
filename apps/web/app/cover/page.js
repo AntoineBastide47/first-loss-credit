@@ -41,6 +41,7 @@ export default function CoverPage() {
     return () => clearInterval(id);
   }, [load]);
 
+  const isOperator = address === MARKET.operator;
   const cover = broker ? big(broker.CoverAvailable) : 0n;
   const debt = broker ? big(broker.DebtTotal) : 0n;
   const minimum = broker ? requiredCover(broker) : 0n;
@@ -84,43 +85,49 @@ export default function CoverPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 sm:grid-cols-2">
-            <Card>
-              <CardContent className="space-y-3 p-6">
-                <h2 className="font-medium">Add cover</h2>
-                <div className="space-y-1.5">
-                  <Label htmlFor="add">Amount (XRP)</Label>
-                  <Input id="add" inputMode="decimal" value={add} onChange={(e) => setAdd(e.target.value.trim())} placeholder="0.00" />
-                </div>
-                <TxButton
-                  label="Add cover"
-                  explain={explain}
-                  disabled={!isConnected || !addValid}
-                  tx={() => ({ TransactionType: "LoanBrokerCoverDeposit", Account: address, LoanBrokerID: MARKET.brokerId, Amount: xrpToDrops(add) })}
-                  onResult={() => { setAdd(""); load(); }}
-                />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="space-y-3 p-6">
-                <h2 className="font-medium">Withdraw cover</h2>
-                <div className="space-y-1.5">
-                  <Label htmlFor="rm">Amount (XRP)</Label>
-                  <Input id="rm" inputMode="decimal" value={remove} onChange={(e) => setRemove(e.target.value.trim())} placeholder="0.00" />
-                </div>
-                <p className="text-xs text-muted-foreground">Can’t drop cover below the minimum while loans are outstanding.</p>
-                <TxButton
-                  label="Withdraw"
-                  variant="outline"
-                  explain={explain}
-                  disabled={!isConnected || !removeValid}
-                  tx={() => ({ TransactionType: "LoanBrokerCoverWithdraw", Account: address, LoanBrokerID: MARKET.brokerId, Amount: xrpToDrops(remove) })}
-                  onResult={() => { setRemove(""); load(); }}
-                />
-              </CardContent>
-            </Card>
-          </div>
-          <p className="text-center text-xs text-muted-foreground">Cover is managed by the desk that runs this market.</p>
+          {isOperator ? (
+            <div className="grid gap-6 sm:grid-cols-2">
+              <Card>
+                <CardContent className="space-y-3 p-6">
+                  <h2 className="font-medium">Add cover</h2>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="add">Amount (XRP)</Label>
+                    <Input id="add" inputMode="decimal" value={add} onChange={(e) => setAdd(e.target.value.trim())} placeholder="0.00" />
+                  </div>
+                  <TxButton
+                    label="Add cover"
+                    explain={explain}
+                    disabled={!isConnected || !addValid}
+                    tx={() => ({ TransactionType: "LoanBrokerCoverDeposit", Account: address, LoanBrokerID: MARKET.brokerId, Amount: xrpToDrops(add) })}
+                    onResult={() => { setAdd(""); load(); }}
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="space-y-3 p-6">
+                  <h2 className="font-medium">Withdraw cover</h2>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rm">Amount (XRP)</Label>
+                    <Input id="rm" inputMode="decimal" value={remove} onChange={(e) => setRemove(e.target.value.trim())} placeholder="0.00" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Can’t drop cover below the minimum while loans are outstanding.</p>
+                  <TxButton
+                    label="Withdraw"
+                    variant="outline"
+                    explain={explain}
+                    disabled={!isConnected || !removeValid}
+                    tx={() => ({ TransactionType: "LoanBrokerCoverWithdraw", Account: address, LoanBrokerID: MARKET.brokerId, Amount: xrpToDrops(remove) })}
+                    onResult={() => { setRemove(""); load(); }}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              First-loss cover is provided and managed by the desk that runs this market. Connect the
+              desk account to add or withdraw it.
+            </p>
+          )}
         </div>
       </main>
     </div>

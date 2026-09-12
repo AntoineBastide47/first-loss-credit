@@ -1,12 +1,11 @@
 "use client";
 
-// Read-only views of the lending protocol, mirroring impl/lib reads. Every value a
-// screen shows is either a raw ledger field or derived here from raw fields. No
-// share price / utilisation / cover ratio is stored on-ledger; the getters below
-// compute them. XRPL omits zero-valued fields, so treat absent numbers as 0.
+// Read-only views of the lending protocol. Every value a screen shows is either a raw
+// ledger field or derived here from raw fields. Redeemable assets and required cover
+// are not stored on-ledger; the getters below compute them. XRPL omits zero-valued
+// fields, so treat absent numbers as 0.
 
 import { getClient } from "./xrpl-client";
-import { ratioString } from "./format";
 
 const big = (v) => BigInt(v ?? "0");
 
@@ -41,17 +40,6 @@ export async function shareBalance(account, shareMptId) {
 
 // ---- derived getters (null when undefined) ----
 
-/** AssetsTotal / OutstandingShares as a decimal string, or null when no shares. */
-export function sharePrice(vault) {
-  return ratioString(big(vault.AssetsTotal), big(vault.shares?.OutstandingAmount), 6);
-}
-
-/** (AssetsTotal - AssetsAvailable) / AssetsTotal in 0..1, or null when empty. */
-export function utilisation(vault) {
-  const total = big(vault.AssetsTotal);
-  return ratioString(total - big(vault.AssetsAvailable), total, 6);
-}
-
 /**
  * Assets redeemable now for `shares` shares: shares * (AssetsTotal - LossUnrealized) /
  * OutstandingShares (BigInt, base-unit drops). 0 when the vault has no shares.
@@ -66,9 +54,4 @@ export function redeemableAssets(vault, shares) {
 /** Minimum cover required now: DebtTotal * CoverRateMinimum / 100000 (BigInt). */
 export function requiredCover(broker) {
   return (big(broker.DebtTotal) * big(broker.CoverRateMinimum)) / 100000n;
-}
-
-/** CoverAvailable / requiredCover as a decimal string, or null when no debt. */
-export function coverRatio(broker) {
-  return ratioString(big(broker.CoverAvailable), requiredCover(broker), 6);
 }

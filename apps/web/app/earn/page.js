@@ -63,8 +63,11 @@ export default function EarnPage() {
   const sharesBig = big(shares);
   const balanceDrops = vault ? redeemableAssets(vault, sharesBig) : 0n;
   const basis = address ? loadBasis(address) : 0n;
+  // Cost basis is tracked in this browser only. Without a record (deposit made on
+  // another device, or storage cleared) earnings are unknown, not "all profit".
+  const hasBasis = basis > 0n;
   const earnings = balanceDrops - basis;
-  const returnPct = basis > 0n ? Number((earnings * 10000n) / basis) / 100 : null;
+  const returnPct = hasBasis ? Number((earnings * 10000n) / basis) / 100 : null;
 
   const tvl = vault ? big(vault.AssetsTotal) : 0n;
   const util = vault ? utilisation(vault) : 0;
@@ -122,15 +125,21 @@ export default function EarnPage() {
             <Card>
               <CardContent className="grid grid-cols-3 gap-4 p-6">
                 <Stat label="Your balance" value={`${xrp(balanceDrops)} XRP`} />
-                <Stat label="Deposited" value={`${xrp(basis)} XRP`} />
+                <Stat label="Deposited" value={hasBasis ? `${xrp(basis)} XRP` : "—"} />
                 <Stat
                   label="Earnings"
-                  value={`${earnings < 0n ? "-" : "+"}${xrp(earnings < 0n ? -earnings : earnings)} XRP`}
-                  accent={earnings > 0n ? "text-emerald-600" : ""}
+                  value={hasBasis ? `${earnings < 0n ? "-" : "+"}${xrp(earnings < 0n ? -earnings : earnings)} XRP` : "—"}
+                  accent={hasBasis && earnings > 0n ? "text-emerald-600" : ""}
                 />
                 {returnPct != null && (
                   <p className="col-span-3 -mt-2 text-xs text-muted-foreground">
                     {returnPct >= 0 ? "+" : ""}{returnPct.toFixed(2)}% since you deposited
+                  </p>
+                )}
+                {!hasBasis && balance > 0n && (
+                  <p className="col-span-3 -mt-2 text-xs text-muted-foreground">
+                    Earnings track deposits made on this device. Open the app where you deposited to
+                    see them.
                   </p>
                 )}
               </CardContent>

@@ -9,6 +9,7 @@ import { LoanManageFlags } from "xrpl";
 import { Header } from "../../components/Header";
 import { TxButton, explain } from "../../components/lending";
 import { useWallet } from "../../components/providers/WalletProvider";
+import { MARKET } from "../../lib/market";
 import { marketBroker, knownLoans } from "../../lib/product";
 import { readLoan } from "../../lib/lending-read";
 import { formatDrops, groupThousands, roundUpToAssetUnit, formatRippleTime } from "../../lib/format";
@@ -56,6 +57,7 @@ export default function ManagePage() {
     return () => clearInterval(t);
   }, [load]);
 
+  const isOperator = address === MARKET.operator;
   const cover = broker ? big(broker.CoverAvailable) : 0n;
   const debt = broker ? big(broker.DebtTotal) : 0n;
 
@@ -101,7 +103,7 @@ export default function ManagePage() {
                       </div>
                       <span className={`text-sm font-medium ${s.tone}`}>{s.label}</span>
                     </div>
-                    {s.canDefault && (
+                    {s.canDefault && isOperator && (
                       <TxButton
                         label="Default this loan"
                         variant="outline"
@@ -110,6 +112,9 @@ export default function ManagePage() {
                         tx={() => ({ TransactionType: "LoanManage", Account: address, LoanID: id, Flags: LoanManageFlags.tfLoanDefault })}
                         onResult={load}
                       />
+                    )}
+                    {s.canDefault && !isOperator && (
+                      <p className="text-xs text-muted-foreground">Only the desk can default this loan.</p>
                     )}
                   </CardContent>
                 </Card>

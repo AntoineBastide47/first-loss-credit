@@ -108,6 +108,9 @@ export default function EscrowPage() {
                 <div className="space-y-1.5"><Label htmlFor="min">Release after (minutes)</Label><Input id="min" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.trim())} placeholder="1" /></div>
               </div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4" checked={useSecret} onChange={(e) => setUseSecret(e.target.checked)} /> Require a secret to release (you hold it)</label>
+              {useSecret && (
+                <p className="text-xs text-muted-foreground">The secret is kept in this browser. If you clear it before releasing, only Cancel after the deadline can return the funds.</p>
+              )}
               <TxButton
                 label="Lock payment"
                 explain={explain}

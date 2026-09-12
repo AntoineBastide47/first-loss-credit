@@ -52,14 +52,18 @@ export default function AccessPage() {
   const { walletManager, isConnected } = useWallet();
   const address = walletManager?.account?.address || null;
 
-  const [issuer, setIssuer] = useState("");
-  const [subject, setSubject] = useState("");
-  const [kind, setKind] = useState("KYC verified");
+  // Each card owns its fields so editing one never rewrites another.
+  const [statusIssuer, setStatusIssuer] = useState("");
+  const [statusKind, setStatusKind] = useState("KYC verified");
+  const [acceptIssuer, setAcceptIssuer] = useState("");
+  const [acceptKind, setAcceptKind] = useState("KYC verified");
+  const [issueSubject, setIssueSubject] = useState("");
+  const [issueKind, setIssueKind] = useState("KYC verified");
   const [status, setStatus] = useState(null);
 
   const hex = (t) => convertStringToHex(t || "");
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (issuer, kind) => {
     setStatus(null);
     try {
       const c = await readCredential({ issuer, subject: address, credentialType: hex(kind) });
@@ -67,7 +71,7 @@ export default function AccessPage() {
     } catch {
       setStatus("none");
     }
-  }, [issuer, address, kind]);
+  }, [address]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -86,10 +90,10 @@ export default function AccessPage() {
             <CardContent className="space-y-3 p-6">
               <h2 className="font-medium">Your status</h2>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field id="iss" label="Issuer" value={issuer} onChange={setIssuer} placeholder="r… of the verifier" mono />
-                <CredSelect id="kind" value={kind} onChange={setKind} />
+                <Field id="iss" label="Issuer" value={statusIssuer} onChange={setStatusIssuer} placeholder="r… of the verifier" mono />
+                <CredSelect id="kind" value={statusKind} onChange={setStatusKind} />
               </div>
-              <Button variant="secondary" onClick={check} disabled={!isConnected || !issuer}>Check my status</Button>
+              <Button variant="secondary" onClick={() => check(statusIssuer, statusKind)} disabled={!isConnected || !statusIssuer}>Check my status</Button>
               {status === "verified" && (
                 <Alert variant="success"><CheckCircle2 className="h-4 w-4" /><AlertTitle>Verified</AlertTitle><AlertDescription>You can access markets gated by this credential.</AlertDescription></Alert>
               )}
@@ -105,14 +109,14 @@ export default function AccessPage() {
               <CardContent className="space-y-3 p-6">
                 <h2 className="font-medium">Accept a credential</h2>
                 <p className="text-xs text-muted-foreground">You’re the recipient. Finish verification granted to you.</p>
-                <Field id="a-iss" label="Issuer" value={issuer} onChange={setIssuer} placeholder="r…" mono />
-                <CredSelect id="a-kind" value={kind} onChange={setKind} />
+                <Field id="a-iss" label="Issuer" value={acceptIssuer} onChange={setAcceptIssuer} placeholder="r…" mono />
+                <CredSelect id="a-kind" value={acceptKind} onChange={setAcceptKind} />
                 <TxButton
                   label="Accept"
                   explain={explain}
-                  disabled={!isConnected || !issuer}
-                  tx={() => ({ TransactionType: "CredentialAccept", Account: address, Issuer: issuer, CredentialType: hex(kind) })}
-                  onResult={check}
+                  disabled={!isConnected || !acceptIssuer}
+                  tx={() => ({ TransactionType: "CredentialAccept", Account: address, Issuer: acceptIssuer, CredentialType: hex(acceptKind) })}
+                  onResult={() => { setStatusIssuer(acceptIssuer); setStatusKind(acceptKind); check(acceptIssuer, acceptKind); }}
                 />
               </CardContent>
             </Card>
@@ -121,14 +125,14 @@ export default function AccessPage() {
               <CardContent className="space-y-3 p-6">
                 <h2 className="font-medium">Issue a credential</h2>
                 <p className="text-xs text-muted-foreground">For verifiers: grant a credential to someone.</p>
-                <Field id="i-sub" label="Recipient" value={subject} onChange={setSubject} placeholder="r…" mono />
-                <CredSelect id="i-kind" value={kind} onChange={setKind} />
+                <Field id="i-sub" label="Recipient" value={issueSubject} onChange={setIssueSubject} placeholder="r…" mono />
+                <CredSelect id="i-kind" value={issueKind} onChange={setIssueKind} />
                 <TxButton
                   label="Issue"
                   variant="outline"
                   explain={explain}
-                  disabled={!isConnected || !subject}
-                  tx={() => ({ TransactionType: "CredentialCreate", Account: address, Subject: subject, CredentialType: hex(kind) })}
+                  disabled={!isConnected || !issueSubject}
+                  tx={() => ({ TransactionType: "CredentialCreate", Account: address, Subject: issueSubject, CredentialType: hex(issueKind) })}
                   onResult={() => {}}
                 />
               </CardContent>

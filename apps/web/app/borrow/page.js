@@ -100,10 +100,7 @@ export default function BorrowPage() {
         Counterparty: MARKET.operator,
         LoanBrokerID: MARKET.brokerId,
         PrincipalRequested: xrpToDrops(amount),
-        InterestRate: 100000,
-        PaymentInterval: 3600,
-        PaymentTotal: 6,
-        GracePeriod: 600,
+        ...MARKET.loanTerms,
       });
       const signed = await walletManager.sign(tx);
       const borrowerBlob = signed?.tx_blob ?? signed;
