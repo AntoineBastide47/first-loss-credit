@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { useWallet } from "../components/providers/WalletProvider";
+import { DEFAULT_NETWORK } from "../lib/networks";
 
 // Configuration - Replace with your API keys
 const XAMAN_API_KEY = process.env.NEXT_PUBLIC_XAMAN_API_KEY || "";
@@ -66,7 +67,11 @@ export function useWalletManager() {
 
         const manager = new WalletManager({
           adapters,
-          network: "testnet",
+          // A non-preset network (any value other than "mainnet"/"testnet"/
+          // "devnet") is passed through by xrpl-connect as-is, so this points
+          // signing at the hackathon devnet instead of public Testnet — every
+          // VaultID/LoanBrokerID/LoanID this app reads only exists there.
+          network: { id: DEFAULT_NETWORK.id, name: DEFAULT_NETWORK.name, wss: DEFAULT_NETWORK.wss },
           autoConnect: true,
           logger: { level: "info" },
         });
