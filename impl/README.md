@@ -39,6 +39,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   - `2.2_permissioned_domain.mjs` — PermissionedDomainSet with the wrapped
     `{ Credential: { Issuer, CredentialType } }` accepted list; standalone membership proof
     (member qualifies, outsider does not).
+  - `2.3_gated_private_vault.mjs` — tfVaultPrivate vault bound to a domain; member deposit
+    succeeds, outsider and unaccepted-credential holder rejected with tecNO_AUTH. Protocol
+    gates depositors/share holders only, not borrowers.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
