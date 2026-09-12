@@ -49,6 +49,8 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
     two-step auth (holder opt-in + issuer authorize); positive balance only after both steps.
   - `3.2_mpt_asset_vault.mjs` — Single Asset Vault over an MPT; Scale omitted (reads 0); MPT
     deposit/withdraw round-trip; explicit Scale on an MPT asset rejected client-side.
+  - `3.3_mpt_loan_flow.mjs` — full loan (originate + repay) in an MPT vault; PrincipalRequested
+    string vs LoanPay MPT-amount object; payment must round UP to a whole base unit.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
@@ -57,7 +59,8 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   (`5.1.0` used the wrong `STX` prefix and was rejected).
 - Interest is **cash-basis** (`LendingProtocolV1_1`): recognized on `LoanPay`, not at origination.
 - Loan payment fields are already in the asset base unit (drops) with a fraction; round **up** to
-  the next integer.
+  the next integer. For an **MPT** vault the sub-unit shortfall is not tolerated: a truncated-down
+  `LoanPay` fails `tecINSUFFICIENT_PAYMENT` (verified 3.3), unlike the XRP drops case below.
 - `VaultWithdraw` with the **share MPT** amount redeems all shares (full value); a bare asset
   amount withdraws assets and leaves yield behind.
 - Default recovery (verified): `DefaultCovered = min(DebtTotal * CoverRateMinimum *
