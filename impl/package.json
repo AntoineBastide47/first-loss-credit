@@ -8,7 +8,8 @@
     "1.1": "node part-1/1.1_vault_lifecycle_and_yield.mjs",
     "1.2": "node part-1/1.2_broker_and_first_loss_cover.mjs",
     "1.3": "node part-1/1.3_loan_origination_and_repayment.mjs",
-    "1.4": "node part-1/1.4_impairment_default_recovery.mjs"
+    "1.4": "node part-1/1.4_impairment_default_recovery.mjs",
+    "1.5": "node part-1/1.5_guardrail_gallery.mjs"
   },
   "dependencies": {
     "ripple-keypairs": "^3.0.0",

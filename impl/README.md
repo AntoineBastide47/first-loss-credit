@@ -19,8 +19,14 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 
 ## Layout
 - `lib/index.mjs` — shared, non-phase helpers (connect, fundAccounts, submitAndWait,
-  signLoanSetCounterparty, roundUpToAssetUnit, ledger reads, explorer, logFriction).
-- `part-1/1.1_vault_lifecycle_and_yield.mjs` — Phase 1.1: vault lifecycle + real yield.
+  submitExpectingFailure, submitSignedExpectingFailure, signLoanSetCounterparty,
+  roundUpToAssetUnit, waitUntilAfter, ledger reads, explorer, logFriction).
+- `part-1/` — Part 1 (Vanilla), all verified live on-chain:
+  - `1.1_vault_lifecycle_and_yield.mjs` — vault lifecycle + real yield.
+  - `1.2_broker_and_first_loss_cover.mjs` — broker + first-loss cover minimum.
+  - `1.3_loan_origination_and_repayment.mjs` — dual-signed LoanSet + repayment + tfLoanFullPayment rules.
+  - `1.4_impairment_default_recovery.mjs` — impair, default, first-loss recovery, timing guards.
+  - `1.5_guardrail_gallery.mjs` — 8 guardrail rejections (A-H), each with a positive control.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
@@ -31,3 +37,10 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
   the next integer.
 - `VaultWithdraw` with the **share MPT** amount redeems all shares (full value); a bare asset
   amount withdraws assets and leaves yield behind.
+- Default recovery (verified): `DefaultCovered = min(DebtTotal * CoverRateMinimum *
+  CoverRateLiquidation, DefaultAmount, CoverAvailable)`; cover moves to the vault and the residual
+  is a realized `AssetsTotal` loss. After default, `CoverAvailable`/`DebtTotal` may read absent
+  (XRPL omits zero-valued fields) — treat missing as `0`.
+- Guardrail codes (verified): liquidity/cover `tecINSUFFICIENT_FUNDS`; caps `tecLIMIT_EXCEEDED`;
+  late-without-flag `tecEXPIRED`; real underpayment `tecINSUFFICIENT_PAYMENT` (a sub-drop
+  truncation alone is accepted). Impair/default timing violations → `tecTOO_SOON`.

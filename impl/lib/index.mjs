@@ -161,6 +161,18 @@ export async function submitExpectingFailure(client, tx, wallet) {
   return { code, hash: res?.result?.hash, res };
 }
 
+/**
+ * Submit an ALREADY-SIGNED tx blob and return the engine result WITHOUT throwing on
+ * a tec/tem code. Use for negative controls on a pre-signed transaction (e.g. a
+ * dual-signed LoanSet) where re-autofilling/re-signing would be wrong.
+ */
+export async function submitSignedExpectingFailure(client, txBlob) {
+  const res = await client.submitAndWait(txBlob).catch((e) => e);
+  const code =
+    res?.result?.meta?.TransactionResult || res?.data?.error || res?.message || "unknown";
+  return { code, hash: res?.result?.hash, res };
+}
+
 /** Advance `n` validated ledgers by polling ledger_current_index. Bounded wait. */
 export async function waitLedgers(client, n) {
   if (!Number.isInteger(n) || n < 1 || n > 200) {
