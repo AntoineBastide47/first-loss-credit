@@ -14,6 +14,7 @@ features (closed-ended vaults, cash-basis accounting, two-step `LoanAccept`) are
 | [building-on-lending-devnet](building-on-lending-devnet/SKILL.md) | Endpoints, library versions, account roles, RLUSD caveat. Start here. |
 | [xrpl-single-asset-vault](xrpl-single-asset-vault/SKILL.md) | XLS-65 vault: create, deposit, withdraw, read state, share/asset math. |
 | [xrpl-lending-protocol](xrpl-lending-protocol/SKILL.md) | XLS-66: loan broker, first-loss cover, dual-signed `LoanSet`, `LoanPay`, impair/default, Loaded primitives. |
+| [xrpl-dev](xrpl-dev/SKILL.md) | General XRPL dev: `xrpl.js`, wallet connection, TrustLines/MPTs, NFTs, DEX/AMM, payments, Axelar/EVM interop, security. From [XRPL-Commons/xrpl-dev-skills](https://github.com/XRPL-Commons/xrpl-dev-skills). |
 
 These are standalone skill directories (`<name>/SKILL.md` + `references/`), the same structure
 Claude Code loads from `.claude/skills/`.
