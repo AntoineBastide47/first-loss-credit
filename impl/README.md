@@ -57,6 +57,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 - `part-4/` — Part 4 (TokenEscrow collateral), verified live on-chain:
   - `4.1_token_escrow_basics.mjs` — MPT escrow: lock, finish to destination (crypto-condition),
     cancel back to owner; early finish tecNO_PERMISSION, wrong fulfillment tecCRYPTOCONDITION_ERROR.
+  - `4.2_app_verified_collateralized_origination.mjs` — collateral locked in escrow to the broker
+    owner; application gate verifies the validated escrow before LoanSet; no on-chain escrow<->loan
+    link (Loan object does not expose Data); mapping kept in application state.
 
 ## Verified findings (baked into `lib/`)
 - `LoanBrokerSet` requires `Account == Vault.Owner` (else `tecNO_PERMISSION`).
@@ -75,6 +78,9 @@ node part-1/1.1_vault_lifecycle_and_yield.mjs
 - Token escrow (verified 4.1): MPT escrow between non-issuers needs `tfMPTCanEscrow` +
   `tfMPTCanTransfer`. `EscrowFinish` before `FinishAfter` → `tecNO_PERMISSION`; a wrong
   `Fulfillment` → `tecCRYPTOCONDITION_ERROR`. `EscrowCreate` has no `Data` field.
+- No escrow↔loan binding (verified 4.2): `LoanSet` does not verify any escrow; the `Loan` object
+  does **not** expose a `Data` field even when `LoanSet.Data` is set, and neither object references
+  the other. Collateral enforcement is application logic; keep the mapping in application state.
 - Default recovery (verified): `DefaultCovered = min(DebtTotal * CoverRateMinimum *
   CoverRateLiquidation, DefaultAmount, CoverAvailable)`; cover moves to the vault and the residual
   is a realized `AssetsTotal` loss. After default, `CoverAvailable`/`DebtTotal` may read absent
