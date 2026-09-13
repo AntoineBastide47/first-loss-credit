@@ -1,0 +1,178 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "coverage": "partial",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-13T07:27:12.679Z",
+  "features_touched": ["xls-65", "xls-66", "xls-85", "xls-70", "xls-80", "mpt"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "expectation",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerSet",
+      "result_code": null,
+      "summary": "High precision fields round trip in scientific notation: DebtMaximum written as 1000000000000 reads back as 1e12, which BigInt rejects, breaking every market created that way",
+      "attempts": 1,
+      "minutes_lost": 25,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "doc_gap",
+      "surface": "docs",
+      "feature": "xls-85",
+      "tx_type": "EscrowCreate",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "Escrowing a permissioned MPT to a non member of its domain returns tecNO_PERMISSION, a cause absent from the three listed in XLS-0085",
+      "attempts": 2,
+      "minutes_lost": 40,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "workaround",
+      "surface": "protocol",
+      "feature": "mpt",
+      "tx_type": "OfferCreate",
+      "result_code": null,
+      "summary": "OfferCreate TakerGets and TakerPays exclude MPT amounts, so XLS-65 vault shares cannot trade on the DEX and a bespoke escrow order book was required",
+      "attempts": 1,
+      "minutes_lost": 30,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "error_message",
+      "surface": "sdk",
+      "feature": null,
+      "tx_type": null,
+      "result_code": null,
+      "summary": "Bundled WalletConnect gates 22 relay call sites on navigator.onLine alone and throws No internet connection detected without making any request",
+      "attempts": 1,
+      "minutes_lost": 20,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "doc_gap",
+      "surface": "docs",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "Bounds on the repayment schedule are undocumented; probing showed PaymentInterval at least 60s, GracePeriod at most PaymentInterval, and no upper limit at all",
+      "attempts": 1,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [
+    {
+      "question": "Is 30 days the maximum loan term? Can there not be a 1, 2, 3, 4 or 5 year loan?",
+      "feature": "xls-66",
+      "surface": "docs"
+    },
+    {
+      "question": "Why does EscrowCreate fail on ledger with tecNO_PERMISSION when I try to sell a vault share position?",
+      "feature": "xls-85",
+      "surface": "docs"
+    },
+    {
+      "question": "Which XRPL numeric fields can be serialised in scientific notation, and how should they be parsed?",
+      "feature": "xls-66",
+      "surface": "docs"
+    }
+  ],
+  "error_codes": [
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "EscrowCreate",
+      "actual_mistake": "escrow destination is not a member of the permissioned domain on the MPT issuance; cause not listed in XLS-0085",
+      "clarity_1_5": 1
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "MPTokenAuthorize",
+      "actual_mistake": "an issuer opting in to its own issuance",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "EscrowCancel",
+      "actual_mistake": "cancelling an escrow before its CancelAfter time",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecNO_AUTH",
+      "tx_type": "EscrowCreate",
+      "actual_mistake": "destination holds no MPToken for an issuance carrying lsfMPTRequireAuth",
+      "clarity_1_5": 3
+    },
+    {
+      "code": "tecINSUFFICIENT_FUNDS",
+      "tx_type": "VaultWithdraw",
+      "actual_mistake": "withdrawing more than AssetsAvailable while the remainder is lent out",
+      "clarity_1_5": 3
+    }
+  ],
+  "abandoned": [
+    {
+      "what": "Custodian held listings for shares of gated vaults, the open order book design",
+      "blocked_at": "permissioned domain membership: the custodian cannot be admitted to every market's compliance domain, so escrowing gated shares to it always returns tecNO_PERMISSION"
+    }
+  ],
+  "workarounds": [
+    {
+      "what": "A parser that expands scientific notation before any XRPLNumber is converted to BigInt or formatted",
+      "should_be_provided_by": "sdk"
+    },
+    {
+      "what": "A bespoke escrow based order book for vault shares because the DEX cannot quote MPTs",
+      "should_be_provided_by": "protocol"
+    },
+    {
+      "what": "Overriding navigator.onLine so WalletConnect will attempt its relay instead of refusing offline",
+      "should_be_provided_by": "sdk"
+    },
+    {
+      "what": "Enumerating a loan broker's pseudo account to read its loan book, since there is no broker to loans index",
+      "should_be_provided_by": "protocol"
+    }
+  ],
+  "time_to_first_success_minutes": {
+    "EscrowCreate": 3,
+    "OfferCreate": 0,
+    "LoanSet": 0,
+    "VaultDeposit": 0,
+    "LoanPay": 0,
+    "Payment": 0,
+    "MPTokenAuthorize": 0
+  },
+  "time_to_first_success_source": {
+    "EscrowCreate": "hook",
+    "OfferCreate": "hook",
+    "LoanSet": "transcript",
+    "VaultDeposit": "transcript",
+    "LoanPay": "transcript",
+    "Payment": "transcript",
+    "MPTokenAuthorize": "transcript"
+  },
+  "single_fix": "State every cause of tecNO_PERMISSION for MPT escrows in XLS-0085, including permissioned domain membership of the destination, and distinguish it from tecNO_AUTH. That code carried at least four distinct meanings across three transaction types in this period and was the largest single time sink.",
+  "not_observed": [
+    "Root cause of the tecNO_PERMISSION at ledger 90406 on a public vault: issuance flags, holder balance, destination token, account flags and timings were all verified correct at that exact ledger, the identical transaction now simulates tesSUCCESS, and three other accounts succeeded minutes later. Undetermined, not attributed to any protocol behaviour.",
+    "Context of a tecNO_PERMISSION on LoanBrokerSet logged by the hook at 07:41:59Z; no claim made.",
+    "Whether the developer worked in other Claude sessions or tools during this period; checkpoint mode does not ask.",
+    "Whether MPTs trade on the DEX on builds other than this devnet with xrpl.js 5.2.0-beta.1."
+  ],
+  "redacted": [
+    "operator seed referenced only by environment variable name, never printed",
+    "capture ingest key present in the local hook config, not included"
+  ]
+}

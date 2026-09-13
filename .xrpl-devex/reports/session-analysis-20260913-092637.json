@@ -1,0 +1,131 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "coverage": "full",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T23:42:22.081Z",
+  "features_touched": ["xls-65", "xls-66", "xls-70", "xls-80", "xls-85", "mpt"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "wrong_model",
+      "surface": "sdk",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "xrpl-connect adapters return different things in sign().tx_blob: Crossmark a real serialized blob, WalletConnect and GemWallet a bare signature, so a dual-signed LoanSet fails silently downstream with an unreadable payload.",
+      "attempts": 2,
+      "minutes_lost": 35,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "doc_gap",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerSet",
+      "result_code": null,
+      "summary": "ManagementFeeRate uses the 1e5 scale like the cover rates, but nothing states it and a wrong scale is accepted silently: a fee meant as 3% was written as 300 and charged 0.3%, with the UI reading it back consistently.",
+      "attempts": 1,
+      "minutes_lost": 20,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "expectation",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanPay",
+      "result_code": null,
+      "summary": "A fully repaid Loan keeps fixed term fields such as PeriodicPayment while its balances are omitted, so a settled loan reads as overdue with a payment due and can even be offered for default.",
+      "attempts": 1,
+      "minutes_lost": 20,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "doc_gap",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": null,
+      "result_code": null,
+      "summary": "No documented way to enumerate lending objects: loans are owned by the broker pseudo-account (broker.Account) and collateral is found through the borrower's escrow objects, neither of which is signposted.",
+      "attempts": 1,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultSet",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "Adding a DomainID to a vault not created private is rejected tecNO_PERMISSION, which reads as an authorisation failure rather than telling you open vs gated is fixed at creation.",
+      "attempts": 1,
+      "minutes_lost": 5,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 6,
+      "friction_type": "doc_gap",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "Loan term validation rules are discoverable only by failing: InterestRate must be 0..100000 and GracePeriod must not exceed PaymentInterval.",
+      "attempts": 2,
+      "minutes_lost": 5,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [
+    {"question": "I repaid the full quoted amount but my earnings are only 0.000003 XRP, why?", "feature": "xls-65", "surface": "docs"},
+    {"question": "Where does the management fee go, and does the broker owner have to claim it?", "feature": "xls-66", "surface": "docs"},
+    {"question": "How do you list the loans belonging to a broker, or the collateral a borrower has posted?", "feature": "xls-66", "surface": "docs"}
+  ],
+  "error_codes": [
+    {"code": "tecNO_PERMISSION", "tx_type": "VaultSet", "actual_mistake": "Tried to add a DomainID to a vault not created private; open vs gated is immutable", "clarity_1_5": 2},
+    {"code": "tecINSUFFICIENT_FUNDS", "tx_type": "VaultWithdraw", "actual_mistake": "Withdrawing more than AssetsAvailable; the assets exist but are lent out", "clarity_1_5": 3}
+  ],
+  "abandoned": [
+    {"what": "Exposing clawback controls", "blocked_at": "Requires tfMPTCanClawback at mint, which the market tokens do not set"},
+    {"what": "Authenticating callers of desk-side server routes", "blocked_at": "Wallet adapters do not support message signing, so wallet ownership cannot be proven to a server"}
+  ],
+  "workarounds": [
+    {"what": "Rebuilding a signed transaction blob from a bare signature plus the account public key because adapters return inconsistent shapes", "should_be_provided_by": "sdk"},
+    {"what": "Recording the market creator in the vault Data field to authorise server-side actions from ledger state", "should_be_provided_by": "sdk"},
+    {"what": "Enumerating loans via the broker pseudo-account and collateral via borrower escrow objects", "should_be_provided_by": "protocol"}
+  ],
+  "time_to_first_success_minutes": {
+    "VaultSet": 0,
+    "VaultCreate": 0,
+    "LoanSet": 0,
+    "LoanPay": 0,
+    "LoanManage": 0,
+    "LoanBrokerDelete": 0
+  },
+  "time_to_first_success_source": {
+    "VaultSet": "hook",
+    "VaultCreate": "hook",
+    "LoanSet": "hook",
+    "LoanPay": "hook",
+    "LoanManage": "hook",
+    "LoanBrokerDelete": "hook"
+  },
+  "single_fix": "Make wallet adapters return a consistent, complete signed transaction blob from sign(): the WalletConnect adapter already receives the full signed tx_json and discards all but the signature, and the inconsistency fails silently rather than erroring.",
+  "not_observed": [
+    "Whether a visible-sized management fee is credited anywhere other than the broker owner's wallet.",
+    "Whether ledger_data with type vault can enumerate the whole ledger economically; only per-owner enumeration was measured.",
+    "Whether adapters other than WalletConnect, GemWallet and Crossmark return a usable tx_blob.",
+    "Whether the developer used other Claude sessions or tools during the period (checkpoint mode does not ask)."
+  ],
+  "redacted": ["operator seed and WalletConnect project id exist in repo env but are excluded from this report"]
+}

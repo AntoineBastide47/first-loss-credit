@@ -1,0 +1,131 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T14:49:33.115Z",
+  "coverage": "compacted",
+  "features_touched": ["xls-65", "xls-66", "xls-70", "xls-80", "xls-85", "mpt"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanPay",
+      "result_code": "tecINSUFFICIENT_PAYMENT",
+      "summary": "MPT LoanPay rejects a floored PeriodicPayment (tecINSUFFICIENT_PAYMENT); the payable amount must round UP to a whole base unit, unlike an XRP-drops vault which tolerates the same sub-unit truncation",
+      "attempts": 2,
+      "minutes_lost": 10,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerSet",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "LoanBrokerSet on an open-ended vault is accepted on hackathon rippled 3.4.0-rc1 but rejected tecNO_PERMISSION on public Devnet 3.4.0-rc5 although Account == Vault.Owner; the code implies an ownership error, not a build or vault-kind policy",
+      "attempts": 1,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultCreate",
+      "result_code": null,
+      "summary": "A private vault stores its DomainID on the share MPTokenIssuance (vault.shares.DomainID), not at the vault top level; an assertion on Vault.DomainID failed until the field was found under shares",
+      "attempts": 2,
+      "minutes_lost": 8,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "dead_end",
+      "surface": "infra",
+      "feature": "xls-66",
+      "tx_type": null,
+      "result_code": null,
+      "summary": "Validated-ledger and submit requests to the Devnet timed out several times mid-flow (guardrail run, an MPT collateralized-origination LoanSet submit, a public-Devnet multi-tx flow), each forcing a full re-run",
+      "attempts": 3,
+      "minutes_lost": 12,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-85",
+      "tx_type": "EscrowCreate",
+      "result_code": null,
+      "summary": "MPToken balance model: MPTAmount is the spendable balance and LockedAmount is additive (total owned = MPTAmount + LockedAmount); computing spendable as MPTAmount - LockedAmount is wrong",
+      "attempts": 2,
+      "minutes_lost": 6,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 6,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultCreate",
+      "result_code": null,
+      "summary": "An MPT-asset VaultCreate must OMIT Scale entirely (Scale: 0 fails client-side validation and is not normalized); Asset is { mpt_issuance_id } with no value while deposit/withdraw Amount carries the value",
+      "attempts": 1,
+      "minutes_lost": 5,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 7,
+      "friction_type": "doc_gap",
+      "surface": "sdk",
+      "feature": "xls-80",
+      "tx_type": "PermissionedDomainSet",
+      "result_code": null,
+      "summary": "PermissionedDomainSet.AcceptedCredentials requires the wrapped [{ Credential: { Issuer, CredentialType } }] form; the flat { Issuer, CredentialType } is rejected by validation",
+      "attempts": 1,
+      "minutes_lost": 5,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [],
+  "error_codes": [
+    {"code": "tecINSUFFICIENT_PAYMENT", "tx_type": "LoanPay", "actual_mistake": "paid the floor of a fractional MPT PeriodicPayment; the payable amount must round up to a whole base unit", "clarity_1_5": 3},
+    {"code": "tecNO_PERMISSION", "tx_type": "LoanBrokerSet", "actual_mistake": "build/vault-kind policy on public Devnet rc5, not an ownership problem; Account equaled Vault.Owner", "clarity_1_5": 2},
+    {"code": "tecNO_PERMISSION", "tx_type": "EscrowFinish", "actual_mistake": "finish attempted before FinishAfter; generic permission code, not a too-early signal", "clarity_1_5": 3},
+    {"code": "tecCRYPTOCONDITION_ERROR", "tx_type": "EscrowFinish", "actual_mistake": "wrong Fulfillment supplied for the crypto-condition; clear and specific", "clarity_1_5": 5},
+    {"code": "temMALFORMED", "tx_type": "EscrowFinish", "actual_mistake": "Fulfillment omitted on a conditioned escrow; rejected at submission with a generic malformed code", "clarity_1_5": 3},
+    {"code": "tecINSUFFICIENT_FUNDS", "tx_type": "LoanBrokerCoverWithdraw", "actual_mistake": "cover-ratio invariant breach, not a balance shortfall; CoverAvailable was ample", "clarity_1_5": 2},
+    {"code": "tecNO_AUTH", "tx_type": "VaultDeposit", "actual_mistake": "intended gate: non-member or unaccepted credential on a private vault (negative control)", "clarity_1_5": 4}
+  ],
+  "abandoned": [
+    {"what": "top-level Vault.DomainID assumption for a private vault", "blocked_at": "DomainID is on the share MPTokenIssuance (vault.shares.DomainID)"},
+    {"what": "MPToken spendable computed as MPTAmount - LockedAmount", "blocked_at": "MPTAmount is already the spendable balance and LockedAmount is additive"},
+    {"what": "EscrowFinish negative control using a missing Fulfillment", "blocked_at": "a missing Fulfillment on a conditioned escrow is temMALFORMED at submission, not a clean tec; switched to a wrong fulfillment"}
+  ],
+  "workarounds": [
+    {"what": "manual round-up of the loan's high-precision PeriodicPayment/TotalValueOutstanding to a payable whole base unit (roundUpToAssetUnit)", "should_be_provided_by": "sdk"},
+    {"what": "hand-built PREIMAGE-SHA-256 condition and fulfillment for escrow, as xrpl.js bundles no crypto-conditions helper", "should_be_provided_by": "sdk"}
+  ],
+  "time_to_first_success_minutes": {},
+  "time_to_first_success_source": {},
+  "single_fix": "Provide an xrpl.js helper that converts a loan's high-precision accounting fields (PeriodicPayment, TotalValueOutstanding) into the correct payable amount for the vault asset, rounding up to a whole base unit, and document that MPT vaults do not tolerate the sub-unit truncation XRP drops allow. This silently costs time on every MPT loan repayment.",
+  "not_observed": [
+    "No verbatim developer XRPL doc-questions this period; work was autonomous implementation, so doc gaps are inferred from failures, not quotes.",
+    "Public-Devnet comparison, closed-ended vault timing (SubscriptionDate/RedemptionDate min 180s), faucet payload differences, and the LoanBrokerCoverWithdraw and temBAD_SIGNER notes are hook reflection rows from parallel probe scripts; exact attempts and timings for those were not independently observed in the transcript.",
+    "Whether the LoanBrokerSet tecNO_PERMISSION divergence on rc5 is an intentional policy change or a regression was not determined.",
+    "Time-to-first-success per tx type is omitted rather than guessed: these are authored reference flows run once live, not iterative first-contact."
+  ],
+  "redacted": []
+}

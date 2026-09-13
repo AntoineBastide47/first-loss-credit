@@ -1,0 +1,72 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T12:15:10.167Z",
+  "coverage": "compacted",
+  "features_touched": ["xls-65", "xls-66"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "workaround",
+      "surface": "sdk",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": "temBAD_SIGNER",
+      "summary": "xrpl.js 5.1.0 signLoanSetByCounterparty uses the STX prefix, not the CPT prefix this build verifies; dual-signed LoanSet rejected until upgrading to 5.2.0-beta.1",
+      "attempts": 2,
+      "minutes_lost": 98,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerCoverWithdraw",
+      "result_code": "tecINSUFFICIENT_FUNDS",
+      "summary": "tecINSUFFICIENT_FUNDS on cover withdraw means a cover-ratio invariant breach, not a balance shortfall; funds were sufficient",
+      "attempts": 1,
+      "minutes_lost": 10,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "interest is cash-basis on this build (recognized on LoanPay); AssetsTotal is unchanged at origination, contradicting an accrual-at-origination assumption",
+      "attempts": 1,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [],
+  "error_codes": [
+    {"code": "temBAD_SIGNER", "tx_type": "LoanSet", "actual_mistake": "counterparty signature produced with the wrong prefix by xrpl.js 5.1.0; fix was an SDK version, not the signer account", "clarity_1_5": 2},
+    {"code": "tecINSUFFICIENT_FUNDS", "tx_type": "LoanBrokerCoverWithdraw", "actual_mistake": "cover-ratio invariant breach (CoverAvailable below DebtTotal*CoverRateMinimum/100000); funds were sufficient", "clarity_1_5": 2},
+    {"code": "tecTOO_SOON", "tx_type": "LoanManage", "actual_mistake": "impair or default attempted before the timing window; code names the cause reasonably", "clarity_1_5": 4}
+  ],
+  "abandoned": [
+    {"what": "manual CPT-prefix counterparty signing built with ripple-keypairs", "blocked_at": "superseded by the xrpl@5.2.0-beta.1 upgrade"}
+  ],
+  "workarounds": [
+    {"what": "upgraded to the experimental dist-tag xrpl@5.2.0-beta.1 to get CPT-prefix counterparty signing for LoanSet", "should_be_provided_by": "sdk"}
+  ],
+  "time_to_first_success_minutes": {"LoanSet": 98},
+  "time_to_first_success_source": {"LoanSet": "hook"},
+  "single_fix": "Ship a stable xrpl.js release whose signLoanSetByCounterparty signs with the CounterpartyTxSign (CPT) prefix, and have the LoanSet signature-rejection error name the expected prefix/signing role instead of a generic temBAD_SIGNER.",
+  "not_observed": [
+    "cause of a Payment tecINSUFFICIENT_FUNDS at 13:20:31Z (possibly reserve or funding); not counted",
+    "whether the LoanSet temBAD_SIGNER at 14:45:52Z was residual friction or an intentional guardrail negative control; not counted",
+    "no developer verbatim questions retained for the period (prompt text omitted as no_signal)",
+    "whether the developer used other Claude sessions or tools in the period (checkpoint mode: not asked)"
+  ],
+  "redacted": []
+}

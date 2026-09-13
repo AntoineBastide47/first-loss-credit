@@ -1,0 +1,117 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "coverage": "full",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T21:39:06.751Z",
+  "features_touched": ["xls-65", "xls-66", "xls-70", "xls-80", "mpt"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerSet",
+      "result_code": "temINVALID",
+      "summary": "LoanBrokerSet only creates: resubmitting for the same VaultID silently creates a second broker (1 created, 0 modified) and LoanBrokerID is rejected temINVALID, so broker terms are immutable with no documented way to tell.",
+      "attempts": 2,
+      "minutes_lost": 25,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "dead_end",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "Broker owner must be the vault owner, and only that account can attach the LoanSet CounterpartySignature (CPT prefix, not exposed by browser wallets) or deposit cover (non-owner gets tecNO_PERMISSION), so a wallet-owned vault can never originate a loan from a web app.",
+      "attempts": 1,
+      "minutes_lost": 40,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultDeposit",
+      "result_code": "tecNO_AUTH",
+      "summary": "A gated deposit returns tecNO_AUTH identically for a missing credential, an unaccepted credential, and one from an issuer the domain does not trust; three probes were needed to isolate the cause.",
+      "attempts": 3,
+      "minutes_lost": 20,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultCreate",
+      "result_code": "temMALFORMED",
+      "summary": "WithdrawalPolicy: 0 is malformed rather than defaulted (the enum starts at 1) and the error names no field.",
+      "attempts": 2,
+      "minutes_lost": 1,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "doc_gap",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": null,
+      "result_code": null,
+      "summary": "No index from a vault to its broker and no way to enumerate lending markets; a directory required joining account_objects type=vault with type=loan_broker per owner on VaultID.",
+      "attempts": 1,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [
+    {"question": "What does tecNO_AUTH mean on a vault deposit, and which of the possible causes applies?", "feature": "xls-65", "surface": "docs"},
+    {"question": "How do you change a loan broker's terms after the vault is created, or are they immutable?", "feature": "xls-66", "surface": "docs"},
+    {"question": "How do you discover lending markets, given there is no vault-to-broker index?", "feature": "xls-66", "surface": "docs"}
+  ],
+  "error_codes": [
+    {"code": "temMALFORMED", "tx_type": "VaultCreate", "actual_mistake": "WithdrawalPolicy set to 0; valid values start at 1 and the error names no field", "clarity_1_5": 1},
+    {"code": "temINVALID", "tx_type": "LoanBrokerSet", "actual_mistake": "Passed LoanBrokerID to update an existing broker; updating is unsupported", "clarity_1_5": 2},
+    {"code": "tecNO_AUTH", "tx_type": "VaultDeposit", "actual_mistake": "Credential missing, unaccepted, or issued by an account the domain does not trust", "clarity_1_5": 2},
+    {"code": "tecNO_PERMISSION", "tx_type": "LoanBrokerCoverDeposit", "actual_mistake": "Non-owner tried to fund first-loss cover", "clarity_1_5": 4}
+  ],
+  "abandoned": [
+    {"what": "Editing broker terms (management fee, minimum cover) after vault creation", "blocked_at": "LoanBrokerSet resubmission creates a duplicate broker; LoanBrokerID rejected temINVALID"}
+  ],
+  "workarounds": [
+    {"what": "Server-held desk account owns the vault and broker so loans can be co-signed, while the creator funds cover via a payment the server verifies before depositing", "should_be_provided_by": "protocol"},
+    {"what": "Market discovery by joining account_objects type=vault and type=loan_broker on VaultID", "should_be_provided_by": "protocol"},
+    {"what": "Repointing a permissioned domain's accepted issuer to repair vaults gated to the wrong account", "should_be_provided_by": "protocol"}
+  ],
+  "time_to_first_success_minutes": {
+    "VaultCreate": 1,
+    "PermissionedDomainSet": 0,
+    "CredentialCreate": 0,
+    "CredentialAccept": 0,
+    "LoanBrokerSet": 0
+  },
+  "time_to_first_success_source": {
+    "VaultCreate": "hook",
+    "PermissionedDomainSet": "hook",
+    "CredentialCreate": "hook",
+    "CredentialAccept": "hook",
+    "LoanBrokerSet": "hook"
+  },
+  "single_fix": "Make LoanBrokerSet update an existing broker in place (or reject a duplicate outright and document that terms are immutable); silently creating a second broker for the same vault can orphan one holding first-loss cover.",
+  "not_observed": [
+    "Whether broker terms can be changed by any mechanism; only LoanBrokerSet was tried, with and without LoanBrokerID.",
+    "Whether ledger-wide vault enumeration via ledger_data type=vault is practical; only per-owner enumeration was measured.",
+    "Whether any specific browser wallet adapter can produce a CPT-prefixed counterparty signature; inferred from the signing scheme, not tested per adapter.",
+    "Whether the developer used other Claude sessions or tools during the period (checkpoint mode does not ask)."
+  ],
+  "redacted": ["operator seed and WalletConnect project id exist in repo env but are excluded from this report"]
+}

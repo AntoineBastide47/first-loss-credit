@@ -1,0 +1,316 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "coverage": "compacted",
+  "features_touched": ["xls-65", "xls-66", "xls-70", "xls-80", "xls-85", "mpt", "rlusd"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "retry_loop",
+      "surface": "sdk",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": "temBAD_SIGNER",
+      "summary": "signLoanSetByCounterparty in xrpl.js 5.1.0 signed the counterparty signature with the wrong hash prefix, so rippled rejected it; fixed only in 5.2.0-beta.1",
+      "attempts": 2,
+      "minutes_lost": 98,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "dead_end",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "Broker owner, vault owner, LoanSet counterparty signer and cover funder must be one account, so a wallet created vault can never lend and a custodial desk had to own every object",
+      "attempts": 1,
+      "minutes_lost": 120,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-85",
+      "tx_type": "EscrowCreate",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "tecNO_PERMISSION covered at least six distinct causes this session, including escrow to a non member of the token's permissioned domain, a cause absent from XLS-0085",
+      "attempts": 2,
+      "minutes_lost": 40,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "expectation",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerSet",
+      "result_code": null,
+      "summary": "High precision fields round trip in scientific notation: DebtMaximum written as 1000000000000 reads back as 1e12, which BigInt rejects, breaking every market created that way",
+      "attempts": 1,
+      "minutes_lost": 25,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "docs_broken",
+      "surface": "infra",
+      "feature": "xls-66",
+      "tx_type": null,
+      "result_code": null,
+      "summary": "The documented lending devnet host lend.devnet.rippletest.net does not resolve, there is no documented programmatic faucet, and the closed ended vault and cash basis loan specs live only in unmerged PRs",
+      "attempts": 1,
+      "minutes_lost": 45,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 6,
+      "friction_type": "workaround",
+      "surface": "protocol",
+      "feature": "mpt",
+      "tx_type": "OfferCreate",
+      "result_code": null,
+      "summary": "OfferCreate TakerGets and TakerPays exclude MPT amounts, so XLS-65 vault shares cannot trade on the DEX and a bespoke escrow order book was required",
+      "attempts": 1,
+      "minutes_lost": 30,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 7,
+      "friction_type": "expectation",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultClawback",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "VaultClawback needs the underlying asset to permit clawback, which XRP never does, so a vault owner cannot wind down a market holding other people's deposits",
+      "attempts": 2,
+      "minutes_lost": 20,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 8,
+      "friction_type": "expectation",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultDelete",
+      "result_code": "tecHAS_OBLIGATIONS",
+      "summary": "LoanBrokerDelete succeeds while the vault still holds deposits and VaultDelete then fails, leaving an orphaned vault with no broker",
+      "attempts": 1,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [
+    {
+      "question": "What does Failed to sign transaction, transaction failed on ledger with tecNO_AUTH mean on a gated vault deposit?",
+      "feature": "xls-70",
+      "surface": "docs"
+    },
+    {
+      "question": "I paid 60.023975 XRP on a loan but my earnings only moved by 0.000003 XRP, why?",
+      "feature": "xls-66",
+      "surface": "docs"
+    },
+    {
+      "question": "Is 30 days the maximum loan term? Can there not be a 1, 2, 3, 4 or 5 year loan?",
+      "feature": "xls-66",
+      "surface": "docs"
+    },
+    {
+      "question": "When I close the market, why is the vault still present and not deleted?",
+      "feature": "xls-65",
+      "surface": "docs"
+    },
+    {
+      "question": "Which XRPL numeric fields can be serialised in scientific notation, and how should they be parsed?",
+      "feature": "xls-66",
+      "surface": "docs"
+    }
+  ],
+  "error_codes": [
+    {
+      "code": "temBAD_SIGNER",
+      "tx_type": "LoanSet",
+      "actual_mistake": "counterparty signature missing or signed without the CPT prefix, reported as signer duplication",
+      "clarity_1_5": 1
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "EscrowCreate",
+      "actual_mistake": "escrow destination is not a member of the MPT's permissioned domain, a cause absent from XLS-0085",
+      "clarity_1_5": 1
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "EscrowFinish",
+      "actual_mistake": "finish attempted before FinishAfter, a timing rule reported as a permission rule",
+      "clarity_1_5": 1
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "LoanBrokerSet",
+      "actual_mistake": "the vault is open ended and that server does not allow open ended lending",
+      "clarity_1_5": 1
+    },
+    {
+      "code": "tecINSUFFICIENT_FUNDS",
+      "tx_type": "LoanBrokerCoverWithdraw",
+      "actual_mistake": "the withdrawal would breach CoverRateMinimum, the funds themselves exist",
+      "clarity_1_5": 1
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "VaultClawback",
+      "actual_mistake": "the vault's underlying asset does not permit clawback",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "MPTokenAuthorize",
+      "actual_mistake": "an issuer opting in to its own issuance",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecNO_PERMISSION",
+      "tx_type": "EscrowCancel",
+      "actual_mistake": "cancel attempted before CancelAfter",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecNO_AUTH",
+      "tx_type": "VaultDeposit",
+      "actual_mistake": "credential missing versus issued but not yet accepted",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecNO_AUTH",
+      "tx_type": "Payment",
+      "actual_mistake": "holder opt in missing versus issuer approval missing for an MPT",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecLIMIT_EXCEEDED",
+      "tx_type": "VaultDeposit",
+      "actual_mistake": "does not say whether the vault cap or the broker debt cap was exceeded",
+      "clarity_1_5": 2
+    },
+    {
+      "code": "tecHAS_OBLIGATIONS",
+      "tx_type": "VaultDelete",
+      "actual_mistake": "the vault still holds depositor funds",
+      "clarity_1_5": 4
+    },
+    {
+      "code": "tecINSUFFICIENT_PAYMENT",
+      "tx_type": "LoanPay",
+      "actual_mistake": "a genuine periodic payment shortfall, correctly specific",
+      "clarity_1_5": 5
+    }
+  ],
+  "abandoned": [
+    {
+      "what": "RLUSD as the vault asset",
+      "blocked_at": "RLUSD is Testnet only while XLS-65 and XLS-66 run on the lending devnet"
+    },
+    {
+      "what": "Custodian held share listings for gated vaults, the open order book design",
+      "blocked_at": "permissioned domain membership: the custodian cannot be admitted to every market's compliance domain, so escrowing gated shares to it returns tecNO_PERMISSION"
+    },
+    {
+      "what": "Hard deleting three vaults that still hold other people's deposits",
+      "blocked_at": "VaultClawback returns tecNO_PERMISSION because neither XRP nor an MPT minted without tfMPTCanClawback can be clawed back"
+    }
+  ],
+  "workarounds": [
+    {
+      "what": "A custodial desk owning every vault, broker and loan, with the creator recorded off protocol in the vault Data field",
+      "should_be_provided_by": "protocol"
+    },
+    {
+      "what": "Manual CPT prefix signing for the LoanSet counterparty signature",
+      "should_be_provided_by": "sdk"
+    },
+    {
+      "what": "A parser that expands scientific notation before any XRPL number is converted to BigInt or formatted",
+      "should_be_provided_by": "sdk"
+    },
+    {
+      "what": "A bespoke escrow based order book for vault shares because the DEX cannot quote MPTs",
+      "should_be_provided_by": "protocol"
+    },
+    {
+      "what": "Crawling a broker pseudo account to read its loan book and crawling known accounts to discover vaults, since neither is indexed",
+      "should_be_provided_by": "protocol"
+    },
+    {
+      "what": "Overriding navigator.onLine so the bundled WalletConnect will attempt its relay instead of refusing offline",
+      "should_be_provided_by": "sdk"
+    },
+    {
+      "what": "Manual ceiling of decimal loan values to integer token units for MPT vault repayments",
+      "should_be_provided_by": "sdk"
+    }
+  ],
+  "time_to_first_success_minutes": {
+    "LoanSet": 98,
+    "VaultCreate": 17,
+    "LoanPay": 14,
+    "EscrowCreate": 3,
+    "LoanBrokerSet": 3,
+    "MPTokenIssuanceCreate": 1,
+    "Payment": 1,
+    "OfferCreate": 1,
+    "VaultClawback": null,
+    "VaultDeposit": null,
+    "VaultWithdraw": null,
+    "LoanManage": null,
+    "LoanDelete": null,
+    "LoanBrokerDelete": null,
+    "LoanBrokerCoverDeposit": null,
+    "LoanBrokerCoverWithdraw": null,
+    "VaultDelete": null,
+    "VaultSet": null
+  },
+  "time_to_first_success_source": {
+    "LoanSet": "hook",
+    "VaultCreate": "hook",
+    "LoanPay": "hook",
+    "EscrowCreate": "hook",
+    "LoanBrokerSet": "hook",
+    "MPTokenIssuanceCreate": "hook",
+    "Payment": "hook",
+    "OfferCreate": "hook",
+    "VaultClawback": "hook",
+    "VaultDeposit": "hook",
+    "VaultWithdraw": "hook",
+    "LoanManage": "hook",
+    "LoanDelete": "hook",
+    "LoanBrokerDelete": "hook",
+    "LoanBrokerCoverDeposit": "hook",
+    "LoanBrokerCoverWithdraw": "hook",
+    "VaultDelete": "hook",
+    "VaultSet": "hook"
+  },
+  "single_fix": "Ship the corrected signLoanSetByCounterparty, the one that applies the CPT prefix, in a stable xrpl.js release, and make temBAD_SIGNER on LoanSet say that the counterparty signature is missing or wrongly prefixed instead of reporting signer duplication. That single issue accounted for a measured 5859 seconds, the largest cost in the session, and every team building on XLS-66 meets it.",
+  "not_observed": [
+    "Root cause of a tecNO_PERMISSION on EscrowCreate at ledger 90406 against a public vault: issuance flags, holder balance, destination token, account flags and timings all verified correct at that exact ledger, the identical transaction later simulated tesSUCCESS, and three other accounts succeeded within minutes. Not reproducible and not attributed to any protocol behaviour.",
+    "Whether the 98 minute LoanSet resolution was mostly diagnosis or mostly waiting for the xrpl.js beta to become available.",
+    "Successful instances of CredentialAccept, CredentialDelete and EscrowCancel were not located in the account histories searched, though all three are used by the project.",
+    "Whether the developer worked in other Claude sessions or tools during this period."
+  ],
+  "redacted": [
+    "operator seed referenced only by environment variable name, never printed",
+    "capture ingest key present in the local hook config, not included",
+    "WalletConnect project id present in local env, not included"
+  ]
+}

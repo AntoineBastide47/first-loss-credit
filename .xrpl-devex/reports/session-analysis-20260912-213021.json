@@ -1,0 +1,96 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T16:56:13.660Z",
+  "coverage": "compacted",
+  "features_touched": ["xls-65", "xls-66"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "workaround",
+      "surface": "tooling",
+      "feature": null,
+      "tx_type": null,
+      "result_code": null,
+      "summary": "WalletConnect signing on a custom network fails: xrpl-connect falls back to xrpl:${network.id}, but WalletConnect v2 empties requiredNamespaces so the wallet approves only its own chain (xrpl:0); the dApp's request(chainId: xrpl:lending-hackathon) is not in the session and rejects. Fix is to set walletConnectId to the wallet's chain.",
+      "attempts": 1,
+      "minutes_lost": 30,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "error_message",
+      "surface": "sdk",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "xrpl.js 5.2.0-beta.1 validateLoanSet accepts GracePeriod 0/negative/NaN and PaymentTotal 0/negative/fractional (only isNumber is checked), so malformed loans pass client validation and fail only at rippled preflight",
+      "attempts": 1,
+      "minutes_lost": 10,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "error_message",
+      "surface": "sdk",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": "temBAD_SIGNER",
+      "summary": "A LoanSet with Counterparty set but no CounterpartySignature passes xrpl.js validateLoanSet (both fields optional) and only fails on-chain with temBAD_SIGNER; the SDK could catch the incomplete dual-signature shape",
+      "attempts": 1,
+      "minutes_lost": 8,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "expectation",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanPay",
+      "result_code": "tecEXPIRED",
+      "summary": "A plain LoanPay on an overdue instalment returns tecEXPIRED; it needs the tfLoanLatePayment flag, which the code does not hint at",
+      "attempts": 2,
+      "minutes_lost": 5,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "doc_gap",
+      "surface": "tooling",
+      "feature": null,
+      "tx_type": null,
+      "result_code": null,
+      "summary": "The reference lending UI registers the WalletConnect adapter only when NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set, so out of the box it cannot connect to the event's own WalletConnect browser wallet",
+      "attempts": 1,
+      "minutes_lost": 5,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [],
+  "error_codes": [
+    {"code": "temBAD_SIGNER", "tx_type": "LoanSet", "actual_mistake": "Counterparty set without a CounterpartySignature; xrpl.js accepted the incomplete shape and the ledger rejected it", "clarity_1_5": 2},
+    {"code": "tecEXPIRED", "tx_type": "LoanPay", "actual_mistake": "overdue instalment paid without tfLoanLatePayment; the code does not point at the missing late-payment flag", "clarity_1_5": 3}
+  ],
+  "abandoned": [
+    {"what": "plain (non-late) LoanPay to inject yield", "blocked_at": "the loan instalment was overdue, so it returned tecEXPIRED; switched to tfLoanLatePayment"}
+  ],
+  "workarounds": [
+    {"what": "added walletConnectId 'xrpl:0' to the app's custom hackathon network so the dApp signs on the chain the WalletConnect wallet actually approves", "should_be_provided_by": "sdk"}
+  ],
+  "time_to_first_success_minutes": {"VaultDeposit": 30, "LoanPay": 1},
+  "time_to_first_success_source": {"VaultDeposit": "transcript", "LoanPay": "transcript"},
+  "single_fix": "Give xrpl-connect first-class support for custom-network WalletConnect chain ids (and document that WalletConnect v2 drops requiredNamespaces, so the dApp's requested chain must equal the wallet's advertised chain). A malformed or fallback chain id silently blocks every signed transaction through a WalletConnect wallet.",
+  "not_observed": [
+    "No verbatim developer XRPL doc-questions this period (autonomous UI testing and debugging).",
+    "The xrpl.js validateLoanSet permissiveness and the Counterparty-without-signature temBAD_SIGNER are parallel public-Devnet probe reflections in the hook buffer; exact repro counts were not independently observed in the main transcript.",
+    "Whether the dev wallet's manual/custom network submits to the hackathon WSS (vs only signing) was not separately confirmed; the deposit validating on the hackathon devnet is consistent with it.",
+    "The redeem flows were set up but not yet executed at the time of this checkpoint."
+  ]
+}

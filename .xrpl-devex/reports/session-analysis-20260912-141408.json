@@ -1,0 +1,119 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T09:48:20.107Z",
+  "coverage": "compacted",
+  "features_touched": ["xls-65", "xls-66", "mpt", "permissioned-domains", "token-escrow"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "docs_broken",
+      "surface": "infra",
+      "feature": "xls-66",
+      "tx_type": null,
+      "result_code": null,
+      "summary": "Documented Lending-Devnet host dead; real hackathon devnet faucet ignores destination so Client.fundWallet fails",
+      "attempts": 3,
+      "minutes_lost": 35,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "workaround",
+      "surface": "sdk",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "xrpl.js signLoanSetByCounterparty signs with STX prefix; rippled verifies counterparty sig with CPT prefix, so it is rejected",
+      "attempts": 2,
+      "minutes_lost": 30,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "error_message",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanBrokerSet",
+      "result_code": "tecNO_PERMISSION",
+      "summary": "LoanBrokerSet returned tecNO_PERMISSION for the vault owner on public Devnet; succeeded on the hackathon devnet, so the code masked a network/build discrepancy",
+      "attempts": 4,
+      "minutes_lost": 15,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-66",
+      "tx_type": "LoanSet",
+      "result_code": null,
+      "summary": "Interest assumed accrual at origination; this build (LendingProtocolV1_1) is cash basis, recognized on LoanPay",
+      "attempts": 1,
+      "minutes_lost": 8,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 5,
+      "friction_type": "wrong_model",
+      "surface": "protocol",
+      "feature": "xls-65",
+      "tx_type": "VaultWithdraw",
+      "result_code": null,
+      "summary": "VaultWithdraw with a bare asset amount withdraws assets and leaves yield; redeeming all shares needs the share MPT amount",
+      "attempts": 2,
+      "minutes_lost": 8,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [
+    {"question": "What is the current Lending hackathon devnet WebSocket host and what is its faucet contract?", "feature": "xls-66", "surface": "infra"},
+    {"question": "How do I co-sign a LoanSet as the counterparty against this build, and which hash prefix does the counterparty signature use?", "feature": "xls-66", "surface": "sdk"},
+    {"question": "Is lending interest accrual basis or cash basis on this network?", "feature": "xls-66", "surface": "docs"}
+  ],
+  "error_codes": [
+    {"code": "tecNO_PERMISSION", "tx_type": "LoanBrokerSet", "actual_mistake": "network/build discrepancy on public Devnet, not an ownership error; owner succeeded on the hackathon devnet", "clarity_1_5": 1},
+    {"code": "tecINSUFFICIENT_FUNDS", "tx_type": "VaultDeposit", "actual_mistake": "deposited the whole balance, leaving nothing for reserve and fee", "clarity_1_5": 3}
+  ],
+  "abandoned": [
+    {"what": "Public Devnet as the target network", "blocked_at": "LoanBrokerSet tecNO_PERMISSION for the vault owner"},
+    {"what": "Client.fundWallet for funding", "blocked_at": "faucet ignores destination and returns its own account"}
+  ],
+  "workarounds": [
+    {"what": "Hand-rolled LoanSet counterparty signature using the CPT hash prefix", "should_be_provided_by": "sdk"},
+    {"what": "Direct faucet POST plus Wallet.fromSeed because the faucet ignores destination", "should_be_provided_by": "sdk"}
+  ],
+  "time_to_first_success_minutes": {
+    "VaultCreate": 20,
+    "VaultDeposit": 25,
+    "LoanBrokerSet": 40,
+    "LoanBrokerCoverDeposit": 40,
+    "LoanSet": 70,
+    "LoanPay": 75,
+    "VaultWithdraw": 85
+  },
+  "time_to_first_success_source": {
+    "VaultCreate": "transcript",
+    "VaultDeposit": "transcript",
+    "LoanBrokerSet": "transcript",
+    "LoanBrokerCoverDeposit": "transcript",
+    "LoanSet": "transcript",
+    "LoanPay": "transcript",
+    "VaultWithdraw": "transcript"
+  },
+  "single_fix": "Publish the current lending hackathon devnet endpoints (WSS, faucet contract, explorer) and ship an xrpl.js that signs the LoanSet counterparty signature with the CPT prefix; these two together would remove the largest time sinks in the period.",
+  "not_observed": [
+    "Exact per-transaction minutes and attempt counts for the compacted earlier work",
+    "Call sites for hook-reported codes temMALFORMED x3, tecEXPIRED x4, tecLIMIT_EXCEEDED x2, temINVALID x2, tecKILLED x1, temBAD_SIGNER x1",
+    "Whether xrpl.js 5.2.0 fixes the counterparty prefix",
+    "Whether the developer used other Claude sessions or tools in the period"
+  ],
+  "redacted": ["faucet-returned account secrets (test accounts)"]
+}

@@ -1,0 +1,94 @@
+{
+  "participant": "young-zebra-47",
+  "team": "aaa",
+  "event": "btf-paris-2026-09",
+  "coverage": "partial",
+  "trigger": "checkpoint",
+  "period_start": "2026-09-12T19:31:20.492Z",
+  "features_touched": ["xls-65", "xls-66", "mpt", "xls-85"],
+  "friction": [
+    {
+      "rank": 1,
+      "friction_type": "terminology",
+      "surface": "sdk",
+      "feature": "mpt",
+      "tx_type": "VaultDeposit",
+      "result_code": null,
+      "summary": "MPT amount shapes differ per field: Asset is identity-only {mpt_issuance_id}, deposit/pay Amount is {mpt_issuance_id, value}, PrincipalRequested is a plain base-unit string. Easy to mix.",
+      "attempts": 0,
+      "minutes_lost": 0,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 2,
+      "friction_type": "dead_end",
+      "surface": "sdk",
+      "feature": "xls-65",
+      "tx_type": "VaultWithdraw",
+      "result_code": null,
+      "summary": "Redeem/VaultWithdraw via the wallet hung in a submitting state then reverted with no engine result surfaced, so success vs rejection vs drop was indistinguishable.",
+      "attempts": 0,
+      "minutes_lost": 0,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 3,
+      "friction_type": "doc_gap",
+      "surface": "docs",
+      "feature": "xls-66",
+      "tx_type": null,
+      "result_code": null,
+      "summary": "Unclear whether lending/vaults are native to XRPL or an amendment (XLS-65/66) that must be enabled.",
+      "attempts": 0,
+      "minutes_lost": 0,
+      "evidence": "observed",
+      "likely_general": true
+    },
+    {
+      "rank": 4,
+      "friction_type": "workaround",
+      "surface": "protocol",
+      "feature": "xls-85",
+      "tx_type": "EscrowFinish",
+      "result_code": null,
+      "summary": "Escrow has no on-chain link to a loan and release cannot be gated on default, so a collateral flow needs an off-ledger mapping and a desk-held fulfillment.",
+      "attempts": 0,
+      "minutes_lost": 0,
+      "evidence": "observed",
+      "likely_general": true
+    }
+  ],
+  "doc_questions": [
+    {"question": "Isn't this project already done on XRPL? Isn't lending a basic feature of the chain?", "feature": "xls-66", "surface": "docs"},
+    {"question": "What is the full recipe to provision an MPT-denominated vault market end to end?", "feature": "mpt", "surface": "docs"}
+  ],
+  "error_codes": [],
+  "abandoned": [],
+  "workarounds": [
+    {"what": "Asset abstraction mapping (asset, human value) to the correct XRP drops string or MPT {mpt_issuance_id, value} object", "should_be_provided_by": "sdk"},
+    {"what": "Off-ledger escrow-to-loan mapping plus a desk-held crypto-condition fulfillment for collateral", "should_be_provided_by": "protocol"}
+  ],
+  "time_to_first_success_minutes": {
+    "VaultCreate": null,
+    "VaultDeposit": null,
+    "LoanSet": null,
+    "LoanBrokerCoverDeposit": null,
+    "MPTokenIssuanceCreate": null
+  },
+  "time_to_first_success_source": {
+    "VaultCreate": "transcript",
+    "VaultDeposit": "hook",
+    "LoanSet": "transcript",
+    "LoanBrokerCoverDeposit": "transcript",
+    "MPTokenIssuanceCreate": "transcript"
+  },
+  "single_fix": "An SDK helper that builds VaultDeposit/VaultWithdraw/LoanPay/cover amounts from (asset, human value), so developers cannot mix the identity-only Asset shape, the valued Amount object, and the plain PrincipalRequested string.",
+  "not_observed": [
+    "Root cause of the VaultWithdraw hang (wallet timeout, dropped submission, or rejection): no engine result recorded.",
+    "Precise per-transaction latency: hook stored no elapsed times and most result codes as null this period.",
+    "Whether the developer used other Claude sessions or tools during the period (checkpoint mode does not ask)."
+  ],
+  "redacted": ["operator seed and WalletConnect project id were present in repo env but excluded from this report"]
+}
