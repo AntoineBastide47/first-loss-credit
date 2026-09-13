@@ -44,5 +44,4 @@ pnpm-debug.log*
 target/
 Cargo.lock
 *.wasm
-.xrpl-devex/
 .claude/settings.local.json
