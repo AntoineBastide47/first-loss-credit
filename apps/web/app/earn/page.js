@@ -155,17 +155,17 @@ export default function EarnPage() {
             <Alert variant={access === "pending" ? "warning" : "default"}>
               <AlertTitle>Verified access required</AlertTitle>
               <AlertDescription className="space-y-2">
-                <p>This vault only admits holders of a {gate.credentialType} credential from its issuer.</p>
+                <p>This market is invitation only. The owner decides who can deposit.</p>
                 {access === "pending" ? (
                   <TxButton
-                    label="Accept credential"
+                    label="Accept invitation"
                     explain={explain}
                     disabled={!isConnected}
                     tx={() => ({ TransactionType: "CredentialAccept", Account: address, Issuer: gate.issuer, CredentialType: convertStringToHex(gate.credentialType) })}
                     onResult={checkAccess}
                   />
                 ) : (
-                  <p className="text-xs text-muted-foreground">Ask the vault owner to issue you the credential, then accept it here.</p>
+                  <p className="text-xs text-muted-foreground">Ask the market owner for an invitation, then accept it here.</p>
                 )}
                 <Button variant="secondary" size="sm" onClick={() => setDemoVerified(true)}>Verify</Button>
               </AlertDescription>
@@ -174,11 +174,11 @@ export default function EarnPage() {
 
           {isConnected && asset.kind === "MPT" && !holdsAsset && (
             <Alert variant="warning">
-              <AlertTitle>Opt in to {sym} first</AlertTitle>
+              <AlertTitle>Enable {sym} first</AlertTitle>
               <AlertDescription className="space-y-2">
                 <p>This vault takes {sym}. Your account has to accept the token before it can hold or deposit it.</p>
                 <TxButton
-                  label={`Opt in to ${sym}`}
+                  label={`Enable ${sym}`}
                   explain={explain}
                   disabled={!isConnected}
                   tx={() => ({ TransactionType: "MPTokenAuthorize", Account: address, MPTokenIssuanceID: asset.issuanceId })}

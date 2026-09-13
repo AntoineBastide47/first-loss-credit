@@ -77,7 +77,7 @@ export default function Home() {
               </CardContent>
             </Card>
             <p className="col-span-3 text-center text-xs text-muted-foreground">
-              {marketCount == null ? "Loading markets…" : `${marketCount} market${marketCount === 1 ? "" : "s"} live on the ledger`}
+              {marketCount == null ? "Loading markets…" : `${marketCount} market${marketCount === 1 ? "" : "s"} open`}
               {" · "}
               <Link href="/vaults" className="underline">browse them all</Link>
             </p>

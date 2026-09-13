@@ -98,8 +98,8 @@ export function CollateralPanel({ market }) {
       <CardContent className="space-y-3 p-6">
         <h2 className="font-medium">Secure with collateral (optional)</h2>
         <p className="text-xs text-muted-foreground">
-          Lock {sym} to the desk and it raises what you can borrow on this market. The desk holds the
-          release key and can claim it if a loan defaults; you reclaim it after the deadline otherwise.
+          Lock {sym} with the desk and it raises what you can borrow on this market. The desk can claim it
+          if a loan defaults. Otherwise it comes back to you after the deadline.
         </p>
 
         {total > 0n && (
@@ -152,7 +152,7 @@ export function CollateralPanel({ market }) {
         {!condition && isConnected && (
           <Alert>
             <AlertTitle>Desk unavailable</AlertTitle>
-            <AlertDescription>The desk has not issued a release condition, so collateral cannot be locked right now.</AlertDescription>
+            <AlertDescription>The desk is not reachable right now, so collateral cannot be locked.</AlertDescription>
           </Alert>
         )}
       </CardContent>

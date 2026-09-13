@@ -122,6 +122,9 @@ and use the account it returns.
 `xrpl@5.2.0-beta.1` is required: it is the first release whose `signLoanSetByCounterparty` signs
 the counterparty signature with the correct `CounterpartyTxSign` prefix.
 
+Every transaction type below has a verified on-ledger receipt in
+[TRANSACTIONS.md](TRANSACTIONS.md), with an explorer link for each.
+
 ## XLS-65 transactions used
 
 Single Asset Vault. All five that the app needs; `VaultClawback` is not used.
@@ -181,5 +184,7 @@ them to it.
 - **Gated markets cannot list shares for sale.** A private vault's share MPT carries a `DomainID`,
   so the shares only move between domain members, and the desk holding the listing escrow is not
   one. Returns `tecNO_PERMISSION`.
-- **Discovery only crawls the desk account.** A vault owned by any other account is found only by
-  pasting its id into "Add by vault id" on the Vaults page.
+
+## Review
+- **Agent Review**: [AGENT_REVIEW](AGENT_REVIEW.md)
+- **Human Review**: [HUMAN_REVIEW](HUMAN_REVIEW.md)

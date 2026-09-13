@@ -145,11 +145,11 @@ export function SharesMarket({ market, vault, shares, onChanged }) {
 
         {!optedIn && isConnected && (
           <Alert variant="warning">
-            <AlertTitle>Opt in to this market’s shares</AlertTitle>
+            <AlertTitle>Enable this market’s shares</AlertTitle>
             <AlertDescription className="space-y-2">
-              <p>Your wallet must hold the share token before you can buy a position.</p>
+              <p>Your wallet has to accept this market’s shares before you can buy a position.</p>
               <TxButton
-                label="Opt in"
+                label="Enable"
                 explain={explain}
                 tx={() => ({ TransactionType: "MPTokenAuthorize", Account: address, MPTokenIssuanceID: market.shareMptId })}
                 onResult={load}
@@ -189,8 +189,7 @@ export function SharesMarket({ market, vault, shares, onChanged }) {
             )}
             {price && !priceValid && (
               <p className="text-xs text-destructive">
-                The asking price is carried on-ledger in a 32-bit field, so it cannot exceed{" "}
-                {formatAmount(asset, String(MAX_PRICE))} {sym}.
+                The most you can ask for one listing is {formatAmount(asset, String(MAX_PRICE))} {sym}.
               </p>
             )}
             <TxButton

@@ -313,7 +313,7 @@ export function VaultManager({ market, address, isConnected, onChanged }) {
               {canManage && asset.kind === "MPT" && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">Distribute {sym}</h4>
-                  <p className="text-xs text-muted-foreground">Send the market&apos;s token so others can deposit. They opt in on Earn first.</p>
+                  <p className="text-xs text-muted-foreground">Send the market&apos;s token so others can deposit. They enable it on Earn first.</p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Input value={sendTo} onChange={(e) => setSendTo(e.target.value.trim())} placeholder="r… recipient" className="font-mono text-xs" />
                     <Input inputMode="decimal" value={sendAmt} onChange={(e) => setSendAmt(e.target.value.trim())} placeholder={`0.00 ${sym}`} />
@@ -336,18 +336,18 @@ export function VaultManager({ market, address, isConnected, onChanged }) {
                     onClick={() => run("fees", () => deskOp({ op: "feesWithdraw", brokerId: market.brokerId }))}>
                     {busy === "fees" ? "Sending…" : "Send fees to my wallet"}
                   </Button>
-                  <p className="text-xs text-muted-foreground">Borrowers pay the management fee to the desk, which holds every market&apos;s fees together. The split is worked out from the ledger and paid to the account recorded as this market&apos;s creator.</p>
+                  <p className="text-xs text-muted-foreground">Borrowers pay the management fee to the desk, which holds every market&apos;s fees together. Your share is worked out from what your market actually earned and paid to the account recorded as this market&apos;s creator.</p>
                 </div>
               )}
 
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">Broker terms</h4>
+                <h4 className="text-sm font-medium">Market terms</h4>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   <div><p className="text-xs text-muted-foreground">Management fee</p><p className="font-medium tabular-nums">{(Number(broker?.ManagementFeeRate ?? 0) / 1000).toFixed(2)}%</p></div>
                   <div><p className="text-xs text-muted-foreground">Minimum cover</p><p className="font-medium tabular-nums">{(Number(broker?.CoverRateMinimum ?? 0) / 1000).toFixed(1)}%</p></div>
-                  <div><p className="text-xs text-muted-foreground">Liquidation rate</p><p className="font-medium tabular-nums">{(Number(broker?.CoverRateLiquidation ?? 0) / 1000).toFixed(1)}%</p></div>
+                  <div><p className="text-xs text-muted-foreground">Cover used on default</p><p className="font-medium tabular-nums">{(Number(broker?.CoverRateLiquidation ?? 0) / 1000).toFixed(1)}%</p></div>
                 </div>
-                <p className="text-xs text-muted-foreground">Broker terms are fixed when the vault is created.</p>
+                <p className="text-xs text-muted-foreground">These are fixed when the market is created and cannot be changed afterwards.</p>
               </div>
 
               {market.gate && (
@@ -368,21 +368,21 @@ export function VaultManager({ market, address, isConnected, onChanged }) {
                   )}
                   <div className="flex flex-wrap gap-2">
                     <Input value={admit} onChange={(e) => setAdmit(e.target.value.trim())} placeholder="r… depositor address" className="font-mono text-xs sm:max-w-xs" />
-                    <TxButton label="Issue credential" explain={explain} disabled={!isConnected || !admit}
+                    <TxButton label="Invite" explain={explain} disabled={!isConnected || !admit}
                       tx={() => ({ TransactionType: "CredentialCreate", Account: address, Subject: admit, CredentialType: convertStringToHex(market.gate.credentialType) })}
                       onResult={() => setAdmit("")} />
                     <TxButton label="Revoke" variant="outline" explain={explain} disabled={!isConnected || !admit || address !== market.gate.issuer}
                       tx={() => ({ TransactionType: "CredentialDelete", Account: address, Subject: admit, Issuer: address, CredentialType: convertStringToHex(market.gate.credentialType) })}
                       onResult={() => setAdmit("")} />
                   </div>
-                  <p className="text-xs text-muted-foreground">Revoking removes the credential, so that account can no longer deposit.</p>
+                  <p className="text-xs text-muted-foreground">Revoking takes the invitation back, so that account can no longer deposit.</p>
                 </div>
               )}
 
               {canManage && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">Close this market</h4>
-                  <p className="text-xs text-muted-foreground">Deletes the broker and vault on the ledger and frees their reserves. Only possible once every loan is settled, the cover is withdrawn and all deposits are out.</p>
+                  <p className="text-xs text-muted-foreground">Closes the market for good and frees what it holds in reserve. Only possible once every loan is settled, the cover is withdrawn and all deposits are out.</p>
                   <Button variant="outline" size="sm" disabled={busy === "close"}
                     onClick={() => run("close", () => deskOp({ op: "close", vaultId: market.vaultId, brokerId: market.brokerId }))}>
                     {busy === "close" ? "Closing…" : "Close market"}
@@ -392,7 +392,7 @@ export function VaultManager({ market, address, isConnected, onChanged }) {
 
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Remove from this browser</h4>
-                <p className="text-xs text-muted-foreground">Forgets the market locally. The vault stays on the ledger and is still discoverable.</p>
+                <p className="text-xs text-muted-foreground">Hides the market on this device only. It stays open and anyone can still find it.</p>
                 <Button variant="outline" size="sm" onClick={() => { removeMarket(market.id); onChanged?.(); }}>Forget market</Button>
               </div>
 

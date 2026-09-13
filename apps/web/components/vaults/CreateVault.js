@@ -148,7 +148,6 @@ export function CreateVault({ address, isConnected, onCreated }) {
       brokerId: created.brokerId,
       operator: created.operator || DESK_OPERATOR,
       creator: address,
-      seedLoanId: null,
       ...(gated && created.domainId ? { domainId: created.domainId, gate: { issuer: address, credentialType: credType } } : {}),
     });
   }, [saved, created, wantCover, coverDone, name, asset, address, gated, credType, onCreated]);
@@ -169,7 +168,7 @@ export function CreateVault({ address, isConnected, onCreated }) {
               <Label htmlFor="v-kind">Asset</Label>
               <select id="v-kind" value={kind} onChange={(e) => setKind(e.target.value)} disabled={!!created} className={sel}>
                 <option value="XRP">XRP</option>
-                <option value="MPT">A token (MPT)</option>
+                <option value="MPT">A token</option>
               </select>
             </div>
             {kind === "MPT" && (
@@ -186,8 +185,8 @@ export function CreateVault({ address, isConnected, onCreated }) {
             <div className="grid gap-3 sm:grid-cols-3">
               {tokenMode === "existing" && (
                 <div className="space-y-1.5 sm:col-span-3">
-                  <Label htmlFor="v-iss">Token id</Label>
-                  <Input id="v-iss" value={issuanceId} onChange={(e) => setIssuanceId(e.target.value.trim())} placeholder="MPT issuance id" className="font-mono text-xs" disabled={!!created} />
+                  <Label htmlFor="v-iss">Existing token</Label>
+                  <Input id="v-iss" value={issuanceId} onChange={(e) => setIssuanceId(e.target.value.trim())} placeholder="token id" className="font-mono text-xs" disabled={!!created} />
                 </div>
               )}
               <div className="space-y-1.5">
@@ -219,7 +218,7 @@ export function CreateVault({ address, isConnected, onCreated }) {
           </label>
           {gated && (
             <div className="space-y-1.5">
-              <Label htmlFor="v-ct">Required credential</Label>
+              <Label htmlFor="v-ct">Who can deposit</Label>
               <select id="v-ct" value={credType} onChange={(e) => setCredType(e.target.value)} disabled={!!created} className={sel}>
                 {CREDENTIAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>

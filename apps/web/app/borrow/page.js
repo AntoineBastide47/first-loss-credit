@@ -262,12 +262,10 @@ export default function BorrowPage() {
 
           {!loan && !deskOperated && (
             <Alert variant="warning">
-              <AlertTitle>This vault can’t originate loans here</AlertTitle>
+              <AlertTitle>This market doesn’t lend here</AlertTitle>
               <AlertDescription>
-                {market.name} is owned by {market.operator === address ? "you" : "another account"}, not the desk. A loan needs the
-                vault owner’s counter-signature, which uses a signing scheme browser wallets don’t
-                expose, so only desk-run markets can fund a loan in this app. You can still deposit
-                into this vault on Earn.
+                {market.name} is run by {market.operator === address ? "you" : "another account"} rather than the desk, and only
+                desk-run markets can fund a loan in this app. You can still deposit into it on Earn.
               </AlertDescription>
             </Alert>
           )}
