@@ -11,7 +11,7 @@
 
 import { Client, Wallet, decode, signLoanSetByCounterparty } from "xrpl";
 import { DEFAULT_NETWORK } from "../../../lib/networks";
-import { getMarket } from "../../../lib/market";
+import { LOAN_TERMS } from "../../../lib/market";
 
 export const runtime = "nodejs";
 
@@ -24,20 +24,15 @@ function createdLoanId(meta) {
 }
 
 /**
- * Reject a decoded LoanSet that is not this market's product. Terms must equal the
- * published loanTerms exactly; only PrincipalRequested varies, and it must be a
- * positive drops amount within the vault's available liquidity. Returns an error
- * string, or null when the loan is acceptable.
+ * Check the loan's terms against the desk's published product. Only PrincipalRequested
+ * varies, and it must be positive and within the vault's available liquidity. Returns an
+ * error string, or null when the loan is acceptable.
  */
-function rejectLoan(tx, market, availableBase) {
-  const t = market.loanTerms;
-  if (tx?.TransactionType !== "LoanSet") return "Not a loan request.";
-  if (tx.Counterparty !== market.operator) return "Loan is not addressed to this desk.";
-  if (tx.LoanBrokerID !== market.brokerId) return "Loan is for a different market.";
-  if (Number(tx.InterestRate) !== t.InterestRate) return "Interest rate is not the desk's rate.";
-  if (Number(tx.PaymentInterval) !== t.PaymentInterval) return "Payment schedule is not the desk's schedule.";
-  if (Number(tx.PaymentTotal) !== t.PaymentTotal) return "Number of payments is not the desk's schedule.";
-  if (Number(tx.GracePeriod) !== t.GracePeriod) return "Grace period is not the desk's schedule.";
+function rejectTerms(tx, availableBase) {
+  if (Number(tx.InterestRate) !== LOAN_TERMS.InterestRate) return "Interest rate is not the desk's rate.";
+  if (Number(tx.PaymentInterval) !== LOAN_TERMS.PaymentInterval) return "Payment schedule is not the desk's schedule.";
+  if (Number(tx.PaymentTotal) !== LOAN_TERMS.PaymentTotal) return "Number of payments is not the desk's schedule.";
+  if (Number(tx.GracePeriod) !== LOAN_TERMS.GracePeriod) return "Grace period is not the desk's schedule.";
   let principal;
   try {
     principal = BigInt(tx.PrincipalRequested);
@@ -49,25 +44,40 @@ function rejectLoan(tx, market, availableBase) {
   return null;
 }
 
-async function availableLiquidity(client, market) {
-  const { result } = await client.request({ command: "vault_info", vault_id: market.vaultId });
-  return BigInt(result.vault?.AssetsAvailable ?? "0");
+/**
+ * Resolve the market from the ledger using the broker the loan actually names. The market
+ * list is not usable here: custom markets live in the browser's localStorage, so a
+ * server-side lookup by id would silently fall back to a built-in market and reject every
+ * loan against a vault created in the app. Reading the broker also proves the desk runs
+ * that market before it agrees to co-sign. Returns { error } or { availableBase }.
+ */
+async function resolveMarket(client, brokerId, deskAddress) {
+  let broker;
+  try {
+    const { result } = await client.request({ command: "ledger_entry", index: brokerId, ledger_index: "validated" });
+    broker = result.node;
+  } catch {
+    return { error: "That market does not exist." };
+  }
+  if (broker?.LedgerEntryType !== "LoanBroker") return { error: "That market does not exist." };
+  if (broker.Owner !== deskAddress) return { error: "This desk does not run that market." };
+  const { result } = await client.request({ command: "vault_info", vault_id: broker.VaultID });
+  return { availableBase: BigInt(result.vault?.AssetsAvailable ?? "0") };
 }
 
 export async function POST(req) {
   const seed = process.env.OPERATOR_SEED;
   if (!seed) return Response.json({ error: "The lending desk is not configured." }, { status: 500 });
 
-  let borrowerBlob, marketId;
+  let borrowerBlob;
   try {
-    ({ borrowerBlob, marketId } = await req.json());
+    ({ borrowerBlob } = await req.json());
   } catch {
     return Response.json({ error: "Bad request." }, { status: 400 });
   }
   if (typeof borrowerBlob !== "string" || !borrowerBlob) {
     return Response.json({ error: "Missing signed loan." }, { status: 400 });
   }
-  const market = getMarket(marketId);
 
   let loanTx;
   try {
@@ -77,11 +87,21 @@ export async function POST(req) {
   }
 
   const operator = Wallet.fromSeed(seed);
+  if (loanTx?.TransactionType !== "LoanSet") {
+    return Response.json({ error: "Not a loan request." }, { status: 422 });
+  }
+  if (loanTx.Counterparty !== operator.address) {
+    return Response.json({ error: "Loan is not addressed to this desk." }, { status: 422 });
+  }
+
   const client = new Client(DEFAULT_NETWORK.wss, { connectionTimeout: 20000 });
   try {
     await client.connect();
 
-    const reason = rejectLoan(loanTx, market, await availableLiquidity(client, market));
+    const market = await resolveMarket(client, loanTx.LoanBrokerID, operator.address);
+    if (market.error) return Response.json({ error: market.error }, { status: 422 });
+
+    const reason = rejectTerms(loanTx, market.availableBase);
     if (reason) return Response.json({ error: reason }, { status: 422 });
 
     const { tx_blob } = signLoanSetByCounterparty(operator, borrowerBlob);

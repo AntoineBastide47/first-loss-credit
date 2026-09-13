@@ -68,8 +68,8 @@ export function ratioString(num, den, dp = 6) {
 }
 
 /**
- * Rate as a percent string. Cover rates use fullScale 100000 (100% = 100000);
- * ManagementFeeRate uses fullScale 10000. Returns e.g. "50" for 50%.
+ * Rate as a percent string. Cover rates and ManagementFeeRate all use fullScale
+ * 100000 (100% = 100000), verified on-ledger. Returns e.g. "50" for 50%.
  */
 export function formatRatePct(rate, fullScale = 100000, dp = 3) {
   return ratioString(BigInt(rate ?? "0") * 100n, fullScale, dp);

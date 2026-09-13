@@ -5,14 +5,14 @@
 // in the browser). Repayments are a single signature. Amounts follow the market's asset.
 
 import { useCallback, useEffect, useState } from "react";
-import { LoanPayFlags } from "xrpl";
-import { Header } from "../../components/Header";
+import { LoanPayFlags, encode, decode } from "xrpl";
 import { MarketSelect } from "../../components/MarketSelect";
+import { CollateralPanel } from "../../components/CollateralPanel";
 import { TxButton, explain } from "../../components/lending";
 import { useWallet } from "../../components/providers/WalletProvider";
-import { MARKETS } from "../../lib/market";
+import { MARKETS, DESK_OPERATOR } from "../../lib/market";
 import { marketVault, loadMyLoan, saveMyLoan, addKnownLoan } from "../../lib/product";
-import { readLoan } from "../../lib/lending-read";
+import { readLoan, borrowerLoans, isSettled } from "../../lib/lending-read";
 import { assetSymbol, formatAmount, toBaseUnits, assetAmount } from "../../lib/asset";
 import { roundUpToAssetUnit, formatRippleTime } from "../../lib/format";
 import { getClient } from "../../lib/xrpl-client";
@@ -26,6 +26,37 @@ import { CheckCircle2, XCircle } from "lucide-react";
 const POLL_MS = 6000;
 const big = (v) => BigInt(v ?? "0");
 const rippleNow = () => Math.floor(Date.now() / 1000) - 946684800;
+
+/**
+ * A borrower-signed LoanSet blob the desk can counter-sign.
+ *
+ * Wallet adapters disagree on what `sign()` returns in `tx_blob`: Crossmark gives a real
+ * serialized blob, while WalletConnect and GemWallet return only the bare signature. The
+ * WalletConnect adapter does have the full signed tx_json (it autofills, so its copy is
+ * the one that was actually signed) and merely discards it, so prefer that when present.
+ * Otherwise fall back to the blob, and last of all rebuild one from the signature.
+ */
+async function signLoanSet(walletManager, tx) {
+  const adapter = walletManager?.wallet;
+  if (typeof adapter?.requestSignTransaction === "function") {
+    const signedJson = await adapter.requestSignTransaction(tx, false);
+    if (signedJson?.TxnSignature) return encode(signedJson);
+  }
+  const signed = await walletManager.sign(tx);
+  const candidate = signed?.tx_blob ?? signed;
+  if (typeof candidate === "string") {
+    try {
+      if (decode(candidate)?.TransactionType) return candidate; // already a full blob
+    } catch {
+      // not a blob: treat it as a bare signature below
+    }
+  }
+  const publicKey = walletManager?.account?.publicKey;
+  if (typeof candidate === "string" && publicKey) {
+    return encode({ ...tx, SigningPubKey: publicKey, TxnSignature: candidate });
+  }
+  throw new Error("This wallet returned a signature this app cannot assemble into a transaction.");
+}
 
 function Stat({ label, value, sub }) {
   return (
@@ -51,11 +82,22 @@ export default function BorrowPage() {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState(null);
+  const [justRepaid, setJustRepaid] = useState(false);
 
   const refreshLoan = useCallback(async (id) => {
     if (!id) return;
     try {
-      setLoan(await readLoan(id));
+      const fresh = await readLoan(id);
+      // A repaid loan lingers on the ledger with empty balances; retire it so the borrow
+      // form comes back instead of offering a payment on a closed loan.
+      if (isSettled(fresh)) {
+        if (address) saveMyLoan(market, address, null);
+        setLoan(null);
+        setLoanId(null);
+        setJustRepaid(true);
+        return;
+      }
+      setLoan(fresh);
     } catch {
       // The loan may be closed/settled; forget it so the borrow form returns.
       if (address) saveMyLoan(market, address, null);
@@ -64,9 +106,26 @@ export default function BorrowPage() {
     }
   }, [market, address]);
 
+  // Your active loan comes from the ledger (loans live in the borrower's owner directory),
+  // so it shows up on any device. The remembered id is only a first guess.
   useEffect(() => {
+    let on = true;
     setLoan(null);
+    setJustRepaid(false);
     setLoanId(address ? loadMyLoan(market, address) : null);
+    if (!address) return undefined;
+    borrowerLoans(address)
+      .then((list) => {
+        if (!on) return;
+        const mine = list.find((x) => x.loan?.LoanBrokerID === market.brokerId && !isSettled(x.loan));
+        if (mine) {
+          setLoanId(mine.id);
+          setLoan(mine.loan);
+          saveMyLoan(market, address, mine.id);
+        }
+      })
+      .catch(() => {});
+    return () => { on = false; };
   }, [market, address]);
 
   useEffect(() => {
@@ -83,6 +142,8 @@ export default function BorrowPage() {
     };
   }, [market, loanId, refreshLoan]);
 
+  // Only the desk can add the LoanSet counterparty signature (its key is server-side).
+  const deskOperated = market.operator === DESK_OPERATOR;
   const available = vault ? big(vault.AssetsAvailable) : 0n;
   const amountValid = (() => {
     try {
@@ -106,8 +167,7 @@ export default function BorrowPage() {
         PrincipalRequested: toBaseUnits(asset, amount),
         ...market.loanTerms,
       });
-      const signed = await walletManager.sign(tx);
-      const borrowerBlob = signed?.tx_blob ?? signed;
+      const borrowerBlob = await signLoanSet(walletManager, tx);
       const resp = await fetch("/api/originate", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -139,9 +199,6 @@ export default function BorrowPage() {
   }, [loanId, refreshLoan]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1">
         <div className="container max-w-2xl py-8 space-y-6">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Borrow {sym}</h1>
@@ -151,7 +208,28 @@ export default function BorrowPage() {
             </p>
           </div>
 
-          {!loan && <MarketSelect value={market} onChange={setMarket} />}
+          {/* Always switchable: hiding this while a loan is open trapped you on that market. */}
+          <MarketSelect value={market} onChange={setMarket} />
+
+          {!loan && !deskOperated && (
+            <Alert variant="warning">
+              <AlertTitle>This vault can’t originate loans here</AlertTitle>
+              <AlertDescription>
+                {market.name} is owned by {market.operator === address ? "you" : "another account"}, not the desk. A loan needs the
+                vault owner’s counter-signature, which uses a signing scheme browser wallets don’t
+                expose, so only desk-run markets can fund a loan in this app. You can still deposit
+                into this vault on Earn.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {!loan && justRepaid && (
+            <Alert variant="success">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Loan repaid</AlertTitle>
+              <AlertDescription>That loan is fully settled. You can borrow again below.</AlertDescription>
+            </Alert>
+          )}
 
           {!loan && (
             <Card>
@@ -164,7 +242,7 @@ export default function BorrowPage() {
                   <Input id="amt" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.trim())} placeholder="0.00" />
                 </div>
                 <p className="text-xs text-muted-foreground">Repaid in 6 installments with interest. You can pay off early any time.</p>
-                <Button className="w-full" disabled={!isConnected || !amountValid || busy} onClick={handleBorrow}>
+                <Button className="w-full" disabled={!isConnected || !amountValid || busy || !deskOperated} onClick={handleBorrow}>
                   {busy ? "Awaiting signature…" : "Borrow"}
                 </Button>
                 {!isConnected && <p className="text-xs text-muted-foreground">Connect a wallet to borrow.</p>}
@@ -240,8 +318,8 @@ export default function BorrowPage() {
               </div>
             </>
           )}
+
+          <CollateralPanel />
         </div>
-      </main>
-    </div>
   );
 }

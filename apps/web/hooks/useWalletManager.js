@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useWallet } from "../components/providers/WalletProvider";
 import { DEFAULT_NETWORK } from "../lib/networks";
 
@@ -35,7 +35,14 @@ export function useWalletManager() {
     [setIsConnected, setAccountInfo],
   );
 
+  // Build the manager exactly once. Without this, a re-run of this effect (StrictMode's
+  // double invoke in dev, or a remount) would replace a live, connected manager.
+  const initialized = useRef(false);
+
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     // Dynamic import to avoid SSR issues
     const initWalletManager = async () => {
       try {

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Header } from "../components/Header";
 import { MARKET } from "../lib/market";
 import { marketVault, marketBroker, utilisation } from "../lib/product";
 import { assetSymbol, formatAmount } from "../lib/asset";
@@ -32,9 +31,6 @@ export default function Home() {
   const protection = broker ? big(broker.CoverAvailable) : null;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1">
         <div className="container max-w-4xl py-16 space-y-14">
           <section className="text-center space-y-5">
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -118,7 +114,5 @@ export default function Home() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
   );
 }

@@ -51,6 +51,56 @@ export function redeemableAssets(vault, shares) {
   return (big(shares) * net) / sharesTotal;
 }
 
+/**
+ * True when a loan is fully repaid. A settled Loan object stays on the ledger with its
+ * balances omitted (XRPL drops zero values), while fixed term fields like PeriodicPayment
+ * remain. Reading those leftovers as an amount due makes a closed loan look overdue.
+ */
+export const isSettled = (loan) =>
+  !!loan && !Number(loan.PaymentRemaining ?? 0) && !Number(loan.PrincipalOutstanding ?? 0);
+
+/** Every object of `type` owned by `account`, following markers. Bounded. */
+async function ownedObjects(account, type) {
+  const client = await getClient();
+  const out = [];
+  let marker;
+  for (let i = 0; i < 20; i += 1) {
+    const { result } = await client.request({
+      command: "account_objects", account, type, limit: 400, ...(marker ? { marker } : {}),
+    });
+    out.push(...(result.account_objects || []));
+    marker = result.marker;
+    if (!marker) break;
+  }
+  return out;
+}
+
+/**
+ * Every loan a broker has made, read from the ledger. A LoanBroker has a pseudo-account
+ * (`broker.Account`) that owns its Loan objects, so the book does not depend on what this
+ * browser happens to remember. Returns [{ id, loan }].
+ */
+export async function brokerLoans(brokerId) {
+  const client = await getClient();
+  let pseudo;
+  try {
+    const { result } = await client.request({ command: "ledger_entry", index: brokerId, ledger_index: "validated" });
+    pseudo = result.node?.Account;
+  } catch {
+    return [];
+  }
+  if (!pseudo) return [];
+  const loans = await ownedObjects(pseudo, "loan");
+  return loans.map((l) => ({ id: l.index, loan: l }));
+}
+
+/** Loans where `account` is the borrower, read from the ledger. Returns [{ id, loan }]. */
+export async function borrowerLoans(account) {
+  if (!account) return [];
+  const loans = await ownedObjects(account, "loan").catch(() => []);
+  return loans.map((l) => ({ id: l.index, loan: l }));
+}
+
 /** Minimum cover required now: DebtTotal * CoverRateMinimum / 100000 (BigInt). */
 export function requiredCover(broker) {
   return (big(broker.DebtTotal) * big(broker.CoverRateMinimum)) / 100000n;
