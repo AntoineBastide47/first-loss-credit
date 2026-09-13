@@ -94,6 +94,77 @@ export async function brokerLoans(brokerId) {
   return loans.map((l) => ({ id: l.index, loan: l }));
 }
 
+/** A holder's MPToken for an issuance, or null when they have not opted in. */
+export async function readMptoken(account, issuanceId) {
+  if (!account || !issuanceId) return null;
+  const client = await getClient();
+  try {
+    const { result } = await client.request({
+      command: "ledger_entry", mptoken: { mpt_issuance_id: issuanceId, account }, ledger_index: "validated",
+    });
+    return result.node;
+  } catch (e) {
+    if (e?.data?.error === "entryNotFound") return null;
+    throw e;
+  }
+}
+
+/** Base-unit value of a transaction Amount field, whatever its shape. */
+const amountValue = (a) => {
+  if (a == null) return 0n;
+  if (typeof a === "string") return BigInt(a);
+  if (typeof a === "object" && a.value != null) return BigInt(String(a.value).split(".")[0]);
+  return 0n;
+};
+
+/**
+ * Net amount `account` has put into `vaultId`, derived from its transaction history so a
+ * position reads the same on any device. Deposits add; withdrawals subtract what was
+ * actually delivered (a withdrawal may be denominated in shares, so the delivered amount
+ * is the reliable figure). Never negative.
+ */
+export async function netDeposited(account, vaultId) {
+  if (!account || !vaultId) return 0n;
+  const client = await getClient();
+  let net = 0n;
+  let marker;
+  for (let i = 0; i < 20; i += 1) {
+    let result;
+    try {
+      ({ result } = await client.request({
+        command: "account_tx", account, limit: 200, ledger_index_min: -1, ledger_index_max: -1,
+        ...(marker ? { marker } : {}),
+      }));
+    } catch {
+      break;
+    }
+    for (const t of result.transactions || []) {
+      const tx = t.tx_json || t.tx || {};
+      if (tx.VaultID !== vaultId || t.meta?.TransactionResult !== "tesSUCCESS") continue;
+      if (tx.TransactionType === "VaultDeposit") net += amountValue(tx.DeliverMax ?? tx.Amount);
+      if (tx.TransactionType === "VaultWithdraw") net -= amountValue(t.meta?.delivered_amount ?? tx.Amount);
+    }
+    marker = result.marker;
+    if (!marker) break;
+  }
+  return net > 0n ? net : 0n;
+}
+
+/**
+ * Escrows `owner` has locked to `destination`, read from the ledger. Collateral has no
+ * on-chain link to a loan, so the desk finds it by looking at what the borrower has
+ * locked to the desk rather than relying on a sequence someone wrote down.
+ */
+export async function escrowsTo(owner, destination) {
+  if (!owner || !destination) return [];
+  const objs = await ownedObjects(owner, "escrow").catch(() => []);
+  return objs
+    .filter((e) => e.Destination === destination)
+    // The object's Sequence is the creating transaction's sequence, which is exactly the
+    // OfferSequence an EscrowFinish or EscrowCancel needs.
+    .map((e) => ({ seq: e.Sequence, amount: e.Amount, cancelAfter: e.CancelAfter, node: e }));
+}
+
 /** Loans where `account` is the borrower, read from the ledger. Returns [{ id, loan }]. */
 export async function borrowerLoans(account) {
   if (!account) return [];

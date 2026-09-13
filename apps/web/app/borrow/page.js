@@ -11,7 +11,7 @@ import { CollateralPanel } from "../../components/CollateralPanel";
 import { TxButton, explain } from "../../components/lending";
 import { useWallet } from "../../components/providers/WalletProvider";
 import { MARKETS, DESK_OPERATOR } from "../../lib/market";
-import { marketVault, loadMyLoan, saveMyLoan, addKnownLoan } from "../../lib/product";
+import { marketVault, loadMyLoan, saveMyLoan } from "../../lib/product";
 import { readLoan, borrowerLoans, isSettled } from "../../lib/lending-read";
 import { assetSymbol, formatAmount, toBaseUnits, assetAmount } from "../../lib/asset";
 import { roundUpToAssetUnit, formatRippleTime } from "../../lib/format";
@@ -176,7 +176,6 @@ export default function BorrowPage() {
       const data = await resp.json();
       if (data.code === "tesSUCCESS" && data.loanId) {
         saveMyLoan(market, address, data.loanId);
-        addKnownLoan(market, data.loanId);
         setLoanId(data.loanId);
         setAmount("");
         setOutcome({ ok: true });

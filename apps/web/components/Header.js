@@ -10,6 +10,7 @@ const NAV = [
   { href: "/earn", label: "Earn" },
   { href: "/borrow", label: "Borrow" },
   { href: "/vaults", label: "Vaults" },
+  { href: "/activity", label: "Activity" },
 ];
 
 export function Header() {
@@ -18,21 +19,21 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur">
-      <div className="container flex h-16 items-center gap-6">
+      <div className="container flex h-16 items-center gap-3 sm:gap-6">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
             <span className="text-sm font-bold">◈</span>
           </div>
-          <span className="font-semibold tracking-tight">First-Loss Credit</span>
+          <span className="hidden font-semibold tracking-tight sm:inline">First-Loss Credit</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 sm:flex">
+        <nav className="flex items-center gap-0.5 sm:gap-1">
           {NAV.map((n) => (
             <Link
               key={n.href}
               href={n.href}
               className={cn(
-                "rounded-full px-4 py-1.5 text-sm transition-colors",
+                "rounded-full px-2.5 py-1.5 text-sm transition-colors sm:px-4",
                 pathname === n.href
                   ? "bg-foreground text-background font-medium"
                   : "text-muted-foreground hover:text-foreground",

@@ -11,6 +11,23 @@ import { DESK_OPERATOR } from "./market";
 import { shortId } from "./format";
 
 const TF_VAULT_PRIVATE = 0x00010000;
+
+/** { name, creator } from a vault's Data. Older vaults stored a bare name string. */
+function readVaultData(hex) {
+  if (!hex) return { name: null, creator: null };
+  let text;
+  try {
+    text = convertHexToString(hex);
+  } catch {
+    return { name: null, creator: null };
+  }
+  try {
+    const j = JSON.parse(text);
+    return { name: j.n || null, creator: j.c || null };
+  } catch {
+    return { name: text.trim() || null, creator: null };
+  }
+}
 const PAGE_GUARD = 20;
 
 /** All objects of `type` owned by `account`, following markers. Bounded. */
@@ -74,17 +91,13 @@ async function marketFrom(vaultId, broker) {
   const domainId = vault.shares?.DomainID || null;
   const gate = (Number(vault.Flags ?? 0) & TF_VAULT_PRIVATE) !== 0 ? await gateOf(domainId) : null;
   const sym = asset.kind === "MPT" ? asset.symbol : "XRP";
-  // Vaults carry their own name on-ledger in Data, so a market found by anyone shows the
-  // name its creator gave it rather than a generated label.
-  let onChainName = null;
-  try {
-    if (vault.Data) onChainName = convertHexToString(vault.Data).trim() || null;
-  } catch {
-    onChainName = null;
-  }
+  // Vaults carry their name and creator on-ledger in Data, so a market found by anyone
+  // shows the name its creator gave it, and "your vaults" works on any device.
+  const { name: onChainName, creator } = readVaultData(vault.Data);
   return {
     id: `chain-${vaultId.slice(0, 10).toLowerCase()}`,
     name: onChainName || `${sym} vault ${shortId(vaultId, 4)}`,
+    ...(creator ? { creator } : {}),
     asset,
     vaultId,
     shareMptId: vault.ShareMPTID,

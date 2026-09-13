@@ -4,15 +4,16 @@
 // borrower interest, protected by junior first-loss cover. Amounts follow the market's
 // asset; no ledger ids.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { convertStringToHex } from "xrpl";
 import { MarketSelect } from "../../components/MarketSelect";
 import { TxButton, explain } from "../../components/lending";
 import { useWallet } from "../../components/providers/WalletProvider";
 import { MARKETS } from "../../lib/market";
-import { marketVault, marketBroker, myShares, utilisation, loadBasis, saveBasis, redeemableAssets } from "../../lib/product";
+import { marketVault, marketBroker, myShares, utilisation, redeemableAssets } from "../../lib/product";
 import { assetSymbol, formatAmount, toBaseUnits, isPositiveAmount, assetAmount, shareAmount } from "../../lib/asset";
 import { readCredential, isAccepted } from "../../lib/access-read";
+import { netDeposited, readMptoken } from "../../lib/lending-read";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -46,8 +47,8 @@ export default function EarnPage() {
   const [withdrawAmt, setWithdrawAmt] = useState("");
   const [access, setAccess] = useState("na"); // na | verified | pending | none
   const [demoVerified, setDemoVerified] = useState(false); // demo shortcut, UI only
-  const depositRef = useRef("0");
-  const beforeSharesRef = useRef("0");
+  const [basis, setBasis] = useState(0n);
+  const [holdsAsset, setHoldsAsset] = useState(true); // MPT markets need an opt-in first
 
   // Gated vaults only admit holders of an accepted credential from the vault's issuer.
   const gate = market.gate;
@@ -70,8 +71,17 @@ export default function EarnPage() {
     setVault(v);
     setBroker(b);
     setShares(s);
+    // Cost basis comes from your own transaction history, so the position reads the same
+    // on any device rather than depending on what this browser remembers.
+    if (address) netDeposited(address, market.vaultId).then(setBasis).catch(() => {});
+    // An MPT market can only take deposits from an account that holds its token.
+    if (address && asset.kind === "MPT") {
+      readMptoken(address, asset.issuanceId).then((t) => setHoldsAsset(!!t)).catch(() => setHoldsAsset(true));
+    } else {
+      setHoldsAsset(true);
+    }
     return { v, s };
-  }, [market, address]);
+  }, [market, address, asset]);
 
   useEffect(() => {
     setVault(null);
@@ -85,7 +95,6 @@ export default function EarnPage() {
 
   const sharesBig = big(shares);
   const balanceBase = vault ? redeemableAssets(vault, sharesBig) : 0n;
-  const basis = address ? loadBasis(market, address) : 0n;
   const hasBasis = basis > 0n;
   const earnings = balanceBase - basis;
   const returnPct = hasBasis ? Number((earnings * 10000n) / basis) / 100 : null;
@@ -96,6 +105,12 @@ export default function EarnPage() {
 
   // Idle assets are the real withdrawal ceiling: anything lent out cannot be redeemed
   // until borrowers repay, and first-loss cover is the broker's capital, not the pool's.
+  // Borrowers pay a fixed published rate; what lenders earn depends on how much of the
+  // pool is actually lent, less the desk's fee.
+  const borrowApr = Number(market.loanTerms?.InterestRate ?? 0) / 1000; // 1e5 scale -> percent
+  const feePct = broker ? Number(broker.ManagementFeeRate ?? 0) / 1000 : 0;
+  const lenderApr = borrowApr * util * (1 - feePct / 100);
+
   const availableBase = vault ? big(vault.AssetsAvailable) : 0n;
   const maxWithdraw = balanceBase < availableBase ? balanceBase : availableBase;
   const requested = (() => {
@@ -110,23 +125,14 @@ export default function EarnPage() {
   const withdrawValid = isPositiveAmount(asset, withdrawAmt) && balanceBase > 0n && !overAvailable && !overBalance;
 
   const onDeposit = useCallback(({ code }) => {
-    if (code === "tesSUCCESS" && address) {
-      try { saveBasis(market, address, loadBasis(market, address) + BigInt(toBaseUnits(asset, depositRef.current))); } catch { /* ignore */ }
-      setDepositAmt("");
-    }
+    if (code === "tesSUCCESS") setDepositAmt("");
     load();
-  }, [market, asset, address, load]);
+  }, [load]);
 
   const onWithdraw = useCallback(async ({ code }) => {
-    const { s } = await load();
-    if (code === "tesSUCCESS" && address) {
-      const after = big(s);
-      const before = big(beforeSharesRef.current);
-      if (after === 0n) saveBasis(market, address, 0n);
-      else if (before > after) saveBasis(market, address, loadBasis(market, address) - (loadBasis(market, address) * (before - after)) / before);
-      setWithdrawAmt("");
-    }
-  }, [market, address, load]);
+    if (code === "tesSUCCESS") setWithdrawAmt("");
+    load();
+  }, [load]);
 
   return (
         <div className="container max-w-3xl py-8 space-y-6">
@@ -161,11 +167,28 @@ export default function EarnPage() {
             </Alert>
           )}
 
+          {isConnected && asset.kind === "MPT" && !holdsAsset && (
+            <Alert variant="warning">
+              <AlertTitle>Opt in to {sym} first</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>This vault takes {sym}. Your account has to accept the token before it can hold or deposit it.</p>
+                <TxButton
+                  label={`Opt in to ${sym}`}
+                  explain={explain}
+                  disabled={!isConnected}
+                  tx={() => ({ TransactionType: "MPTokenAuthorize", Account: address, MPTokenIssuanceID: asset.issuanceId })}
+                  onResult={load}
+                />
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card>
-            <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-4">
+            <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-5">
               <Stat label="Total deposited" value={`${formatAmount(asset, tvl)} ${sym}`} />
               <Stat label="Available now" value={`${formatAmount(asset, availableBase)} ${sym}`} />
               <Stat label="Lent out" value={`${(util * 100).toFixed(0)}%`} />
+              <Stat label="Indicative yield" value={`${lenderApr.toFixed(1)}%`} accent="text-emerald-600" />
               <Stat label="First-loss protection" value={protection != null ? `${formatAmount(asset, protection)} ${sym}` : "—"} accent="text-emerald-600" />
             </CardContent>
           </Card>
@@ -206,9 +229,8 @@ export default function EarnPage() {
                 <TxButton
                   label="Deposit"
                   explain={explain}
-                  disabled={!isConnected || !depositValid || !admitted}
+                  disabled={!isConnected || !depositValid || !admitted || !holdsAsset}
                   tx={() => {
-                    depositRef.current = depositAmt;
                     return { TransactionType: "VaultDeposit", Account: address, VaultID: market.vaultId, Amount: assetAmount(asset, toBaseUnits(asset, depositAmt)) };
                   }}
                   onResult={onDeposit}
@@ -237,7 +259,6 @@ export default function EarnPage() {
                   explain={explain}
                   disabled={!isConnected || !withdrawValid}
                   tx={() => {
-                    beforeSharesRef.current = shares;
                     // Full exit redeems all shares (principal + earnings); a partial
                     // amount withdraws that many asset units and leaves the rest earning.
                     return withdrawIsMax

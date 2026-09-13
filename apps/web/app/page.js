@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MARKET } from "../lib/market";
 import { marketVault, marketBroker, utilisation } from "../lib/product";
+import { discoverMarkets } from "../lib/discover";
 import { assetSymbol, formatAmount } from "../lib/asset";
 import { Card, CardContent } from "../components/ui/card";
 import { buttonVariants } from "../components/ui/button";
@@ -16,11 +17,14 @@ const xrp = (base) => formatAmount(asset, base);
 export default function Home() {
   const [vault, setVault] = useState(null);
   const [broker, setBroker] = useState(null);
+  const [marketCount, setMarketCount] = useState(null);
 
   useEffect(() => {
     let on = true;
     marketVault(MARKET).then((v) => on && setVault(v)).catch(() => {});
     marketBroker(MARKET).then((b) => on && setBroker(b)).catch(() => {});
+    // The app runs many markets, not one; count what is actually on the ledger.
+    discoverMarkets().then((m) => on && setMarketCount(m.length)).catch(() => {});
     return () => {
       on = false;
     };
@@ -34,24 +38,26 @@ export default function Home() {
         <div className="container max-w-4xl py-16 space-y-14">
           <section className="text-center space-y-5">
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              Lend and borrow XRP,
+              Lend and borrow on XRPL,
               <br />
               protected by first-loss capital.
             </h1>
             <p className="mx-auto max-w-xl text-muted-foreground">
               Earn yield from real borrower interest, cushioned by a junior layer that takes losses
-              before you. Or borrow against the vault and repay on your own schedule.
+              before you. Borrow against a vault and repay on your own schedule, or launch a market
+              of your own.
             </p>
             <div className="flex items-center justify-center gap-3">
               <Link href="/earn" className={buttonVariants({ size: "lg" })}>Start earning</Link>
-              <Link href="/borrow" className={buttonVariants({ size: "lg", variant: "outline" })}>Borrow XRP</Link>
+              <Link href="/borrow" className={buttonVariants({ size: "lg", variant: "outline" })}>Borrow</Link>
+              <Link href="/vaults" className={buttonVariants({ size: "lg", variant: "outline" })}>Browse markets</Link>
             </div>
           </section>
 
           <section className="grid grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-5 text-center">
-                <p className="text-xs text-muted-foreground">Total deposited</p>
+                <p className="text-xs text-muted-foreground">{MARKET.name} deposits</p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">{xrp(tvl)}</p>
                 <p className="text-xs text-muted-foreground">XRP</p>
               </CardContent>
@@ -65,11 +71,16 @@ export default function Home() {
             </Card>
             <Card>
               <CardContent className="p-5 text-center">
-                <p className="text-xs text-muted-foreground">First-loss protection</p>
+                <p className="text-xs text-muted-foreground">{MARKET.name} protection</p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-600">{protection != null ? xrp(protection) : "—"}</p>
                 <p className="text-xs text-muted-foreground">XRP</p>
               </CardContent>
             </Card>
+            <p className="col-span-3 text-center text-xs text-muted-foreground">
+              {marketCount == null ? "Loading markets…" : `${marketCount} market${marketCount === 1 ? "" : "s"} live on the ledger`}
+              {" · "}
+              <Link href="/vaults" className="underline">browse them all</Link>
+            </p>
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2">
@@ -78,7 +89,7 @@ export default function Home() {
                 <CardContent className="space-y-2 p-6">
                   <h2 className="text-lg font-semibold">Earn</h2>
                   <p className="text-sm text-muted-foreground">
-                    Deposit XRP and earn borrower interest. Withdraw anytime there is available
+                    Deposit into any market and earn borrower interest. Withdraw anytime there is available
                     liquidity. Your deposit is protected by first-loss cover.
                   </p>
                   <span className="text-sm font-medium">Deposit →</span>
@@ -90,7 +101,7 @@ export default function Home() {
                 <CardContent className="space-y-2 p-6">
                   <h2 className="text-lg font-semibold">Borrow</h2>
                   <p className="text-sm text-muted-foreground">
-                    Draw a loan from the vault and repay in installments, or pay off early. You sign;
+                    Draw a loan from any market and repay in installments, or pay off early. You sign;
                     the desk approves instantly.
                   </p>
                   <span className="text-sm font-medium">Get a loan →</span>
