@@ -3,15 +3,16 @@
 // the operator adds the CounterpartySignature and submits. The operator seed lives
 // only in server env (OPERATOR_SEED), never in the browser.
 //
-// The operator's counterparty signature is the desk's underwriting consent, so this
-// route MUST NOT sign an arbitrary blob: it decodes the LoanSet and rejects anything
-// that is not this market's published product against this broker. Without the check,
-// any client could originate a loan on borrower-chosen terms (e.g. 0% interest, the
-// whole vault) and the operator would fund it.
+// The operator's counterparty signature is the desk's credit decision, so this route
+// MUST NOT sign an arbitrary blob. It decodes the LoanSet and re-runs the underwriting
+// in lib/underwrite.js against the ledger as it stands now. The quote the borrower was
+// shown is never trusted or stored: a signed loan is accepted only if it still fits the
+// decision the desk reaches on its own.
 
 import { Client, Wallet, decode, signLoanSetByCounterparty } from "xrpl";
 import { DEFAULT_NETWORK } from "../../../lib/networks";
-import { LOAN_TERMS } from "../../../lib/market";
+import { RATE_MAX, matchSchedule } from "../../../lib/credit";
+import { underwrite } from "../../../lib/underwrite";
 
 export const runtime = "nodejs";
 
@@ -24,15 +25,21 @@ function createdLoanId(meta) {
 }
 
 /**
- * Check the loan's terms against the desk's published product. Only PrincipalRequested
- * varies, and it must be positive and within the vault's available liquidity. Returns an
- * error string, or null when the loan is acceptable.
+ * Check the signed loan against the desk's decision. The schedule must be one the desk
+ * currently offers, the rate must be at least the floor for THAT schedule (paying more is
+ * the borrower's business, paying less is not), and the principal must fit the limit the
+ * desk sets for it. Returns an error string, or null.
  */
-function rejectTerms(tx, availableBase) {
-  if (Number(tx.InterestRate) !== LOAN_TERMS.InterestRate) return "Interest rate is not the desk's rate.";
-  if (Number(tx.PaymentInterval) !== LOAN_TERMS.PaymentInterval) return "Payment schedule is not the desk's schedule.";
-  if (Number(tx.PaymentTotal) !== LOAN_TERMS.PaymentTotal) return "Number of payments is not the desk's schedule.";
-  if (Number(tx.GracePeriod) !== LOAN_TERMS.GracePeriod) return "Grace period is not the desk's schedule.";
+function rejectLoan(tx, decision) {
+  const option = matchSchedule(decision.options, tx);
+  if (!option) return "That repayment schedule is not one the desk offers.";
+
+  const rate = Number(tx.InterestRate);
+  if (!Number.isInteger(rate) || rate > RATE_MAX) return "Interest rate is malformed.";
+  if (rate < option.rate) {
+    return `The desk's rate for a ${option.termLabel} loan is ${(option.rate / 1000).toFixed(2)}% APR, above what this loan carries. Refresh the quote and sign again.`;
+  }
+
   let principal;
   try {
     principal = BigInt(tx.PrincipalRequested);
@@ -40,29 +47,9 @@ function rejectTerms(tx, availableBase) {
     return "Loan amount is malformed.";
   }
   if (principal <= 0n) return "Loan amount must be positive.";
-  if (principal > availableBase) return "Loan amount exceeds available liquidity.";
+  if (option.maxPrincipal === 0n) return option.reason;
+  if (principal > option.maxPrincipal) return `That is above what the desk will lend you over ${option.termLabel}. ${option.reason}`;
   return null;
-}
-
-/**
- * Resolve the market from the ledger using the broker the loan actually names. The market
- * list is not usable here: custom markets live in the browser's localStorage, so a
- * server-side lookup by id would silently fall back to a built-in market and reject every
- * loan against a vault created in the app. Reading the broker also proves the desk runs
- * that market before it agrees to co-sign. Returns { error } or { availableBase }.
- */
-async function resolveMarket(client, brokerId, deskAddress) {
-  let broker;
-  try {
-    const { result } = await client.request({ command: "ledger_entry", index: brokerId, ledger_index: "validated" });
-    broker = result.node;
-  } catch {
-    return { error: "That market does not exist." };
-  }
-  if (broker?.LedgerEntryType !== "LoanBroker") return { error: "That market does not exist." };
-  if (broker.Owner !== deskAddress) return { error: "This desk does not run that market." };
-  const { result } = await client.request({ command: "vault_info", vault_id: broker.VaultID });
-  return { availableBase: BigInt(result.vault?.AssetsAvailable ?? "0") };
 }
 
 export async function POST(req) {
@@ -98,10 +85,15 @@ export async function POST(req) {
   try {
     await client.connect();
 
-    const market = await resolveMarket(client, loanTx.LoanBrokerID, operator.address);
-    if (market.error) return Response.json({ error: market.error }, { status: 422 });
+    // Underwrite the borrower who actually signed, not whoever posted the blob.
+    const decision = await underwrite(client, {
+      brokerId: loanTx.LoanBrokerID,
+      borrower: loanTx.Account,
+      deskAddress: operator.address,
+    });
+    if (decision.error) return Response.json({ error: decision.error }, { status: 422 });
 
-    const reason = rejectTerms(loanTx, market.availableBase);
+    const reason = rejectLoan(loanTx, decision);
     if (reason) return Response.json({ error: reason }, { status: 422 });
 
     const { tx_blob } = signLoanSetByCounterparty(operator, borrowerBlob);

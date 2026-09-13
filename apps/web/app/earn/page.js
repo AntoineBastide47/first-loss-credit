@@ -7,11 +7,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { convertStringToHex } from "xrpl";
 import { MarketSelect } from "../../components/MarketSelect";
+import { SharesMarket } from "../../components/SharesMarket";
 import { TxButton, explain } from "../../components/lending";
 import { useWallet } from "../../components/providers/WalletProvider";
 import { MARKETS } from "../../lib/market";
 import { marketVault, marketBroker, myShares, utilisation, redeemableAssets } from "../../lib/product";
-import { assetSymbol, formatAmount, toBaseUnits, isPositiveAmount, assetAmount, shareAmount } from "../../lib/asset";
+import { baseRate, utilisationBps } from "../../lib/credit";
+import { assetSymbol, formatAmount, formatAmountShort, toBaseUnits, isPositiveAmount, assetAmount, shareAmount } from "../../lib/asset";
 import { readCredential, isAccepted } from "../../lib/access-read";
 import { netDeposited, readMptoken } from "../../lib/lending-read";
 import { Card, CardContent } from "../../components/ui/card";
@@ -23,11 +25,14 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 const POLL_MS = 6000;
 const big = (v) => BigInt(v ?? "0");
 
-function Stat({ label, value, accent }) {
+function Stat({ label, value, accent, sub, title }) {
   return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tracking-tight tabular-nums ${accent || ""}`}>{value}</p>
+    <div className="min-w-0">
+      <p className="truncate text-xs text-muted-foreground">{label}</p>
+      {/* break-words is the backstop: a number too long for its column wraps rather than
+          running into the next one. The title carries the exact, untrimmed figure. */}
+      <p title={title} className={`mt-1 break-words text-xl font-semibold tracking-tight tabular-nums ${accent || ""}`}>{value}</p>
+      {sub && <p className="truncate text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -105,9 +110,9 @@ export default function EarnPage() {
 
   // Idle assets are the real withdrawal ceiling: anything lent out cannot be redeemed
   // until borrowers repay, and first-loss cover is the broker's capital, not the pool's.
-  // Borrowers pay a fixed published rate; what lenders earn depends on how much of the
-  // pool is actually lent, less the desk's fee.
-  const borrowApr = Number(market.loanTerms?.InterestRate ?? 0) / 1000; // 1e5 scale -> percent
+  // The borrow rate tracks utilisation (lib/credit.js), so it rises as the pool empties;
+  // what lenders earn depends on how much of the pool is actually lent, less the fee.
+  const borrowApr = vault ? baseRate(utilisationBps(vault)) / 1000 : 0; // 1e5 scale -> percent
   const feePct = broker ? Number(broker.ManagementFeeRate ?? 0) / 1000 : 0;
   const lenderApr = borrowApr * util * (1 - feePct / 100);
 
@@ -185,11 +190,11 @@ export default function EarnPage() {
 
           <Card>
             <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-5">
-              <Stat label="Total deposited" value={`${formatAmount(asset, tvl)} ${sym}`} />
-              <Stat label="Available now" value={`${formatAmount(asset, availableBase)} ${sym}`} />
-              <Stat label="Lent out" value={`${(util * 100).toFixed(0)}%`} />
-              <Stat label="Indicative yield" value={`${lenderApr.toFixed(1)}%`} accent="text-emerald-600" />
-              <Stat label="First-loss protection" value={protection != null ? `${formatAmount(asset, protection)} ${sym}` : "—"} accent="text-emerald-600" />
+              <Stat label="Total deposited" value={formatAmountShort(asset, tvl)} sub={sym} title={`${formatAmount(asset, tvl)} ${sym}`} />
+              <Stat label="Available now" value={formatAmountShort(asset, availableBase)} sub={sym} title={`${formatAmount(asset, availableBase)} ${sym}`} />
+              <Stat label="Lent out" value={`${(util * 100).toFixed(0)}%`} sub="of the pool" />
+              <Stat label="Indicative yield" value={`${lenderApr.toFixed(1)}%`} accent="text-emerald-600" sub={`borrowers pay ${borrowApr.toFixed(1)}%`} />
+              <Stat label="First-loss protection" value={protection != null ? formatAmountShort(asset, protection) : "—"} accent="text-emerald-600" sub={protection != null ? sym : ""} title={protection != null ? `${formatAmount(asset, protection)} ${sym}` : undefined} />
             </CardContent>
           </Card>
 
@@ -270,16 +275,19 @@ export default function EarnPage() {
                 {overBalance && <p className="text-xs text-destructive">That is more than your balance.</p>}
                 {!overBalance && overAvailable && (
                   <p className="text-xs text-destructive">
-                    Only {formatAmount(asset, availableBase)} {sym} is available right now; the rest is lent out and frees up as borrowers repay.
+                    Only {formatAmount(asset, availableBase)} {sym} is available right now; the rest is lent out.
+                    Wait for repayments, or sell your position below.
                   </p>
                 )}
               </CardContent>
             </Card>
           </div>
 
+          <SharesMarket market={market} vault={vault} shares={shares} onChanged={load} />
+
           <p className="text-center text-xs text-muted-foreground">
-            Yield is variable and comes from borrower interest. Withdrawals depend on available
-            liquidity; if the vault is fully lent, wait for repayments.
+            Yield is variable and comes from borrower interest. Withdrawing depends on available
+            liquidity; if the vault is fully lent, wait for repayments or sell your position.
           </p>
         </div>
   );

@@ -1,35 +1,51 @@
 "use client";
 
-// Optional collateral for a loan: the borrower locks a token in escrow to the desk. The
-// desk holds the release key (a server-derived crypto-condition), so it can claim the
-// collateral on default; the borrower reclaims it after the deadline otherwise. Uses
-// XLS-85 escrow. Posted collateral is remembered per borrower.
+// Optional collateral for a loan: the borrower locks the market's own asset in an escrow
+// to the desk. The desk holds the release key (a server-derived crypto-condition), so it
+// can claim the collateral on default; the borrower reclaims it after the deadline
+// otherwise. Uses XLS-85 escrow.
+//
+// Collateral is denominated in the market's asset because that is the only thing the desk
+// can credit against a loan: valuing anything else would need a price it does not have.
+// What is locked here raises the borrowing limit the desk quotes on this market.
+//
+// Posted collateral is read from the ledger, the same way the desk reads it, so it shows
+// on any device and never depends on what this browser wrote down.
 
 import { useCallback, useEffect, useState } from "react";
 import { TxButton, explain } from "./lending";
 import { useWallet } from "./providers/WalletProvider";
-import { MARKET } from "../lib/market";
-import { readEscrow } from "../lib/escrow-read";
-import { readTx } from "../lib/meta";
-import { groupThousands, shortId } from "../lib/format";
+import { escrowsTo } from "../lib/lending-read";
+import { assetSymbol, formatAmount, toBaseUnits, assetAmount, isPositiveAmount } from "../lib/asset";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 const RIPPLE_EPOCH = 946684800;
+const LOCK_SECONDS = 7 * 86400;
+const POLL_MS = 8000;
 const rippleNow = () => Math.floor(Date.now() / 1000) - RIPPLE_EPOCH;
-const KEY = (a) => `flc:collateral:${a}`;
 
-export function CollateralPanel() {
+/** Base-unit value of an escrowed amount, or null when it is not this market's asset. */
+function valueOf(amount, asset) {
+  if (asset.kind === "MPT") {
+    return amount && typeof amount === "object" && amount.mpt_issuance_id === asset.issuanceId
+      ? String(amount.value).split(".")[0]
+      : null;
+  }
+  return typeof amount === "string" ? amount : null;
+}
+
+export function CollateralPanel({ market }) {
   const { walletManager, isConnected } = useWallet();
   const address = walletManager?.account?.address || null;
+  const asset = market.asset;
+  const sym = assetSymbol(asset);
 
-  const [tokenId, setTokenId] = useState("");
   const [amount, setAmount] = useState("");
   const [cond, setCond] = useState(null);
-  const [record, setRecord] = useState(null);
-  const [node, setNode] = useState(undefined);
+  const [locked, setLocked] = useState([]);
   const [now, setNow] = useState(rippleNow());
 
   useEffect(() => {
@@ -37,73 +53,107 @@ export function CollateralPanel() {
     return () => clearInterval(t);
   }, []);
 
+  // The release condition is derived from the borrower's address, so it is kept with the
+  // address it belongs to: a condition left over from a previously connected account
+  // would lock collateral the desk could not open.
   useEffect(() => {
-    if (!address || cond) return;
+    if (!address) return undefined;
     let on = true;
-    fetch("/api/collateral", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op: "condition", borrower: address }) })
+    fetch("/api/collateral", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ op: "condition", borrower: address }),
+    })
       .then((r) => r.json())
-      .then((d) => on && d.condition && setCond(d.condition))
+      .then((d) => on && d.condition && setCond({ borrower: address, condition: d.condition }))
       .catch(() => {});
     return () => { on = false; };
-  }, [address, cond]);
-
-  const restore = useCallback(async () => {
-    if (!address) return;
-    let saved = null;
-    try { saved = JSON.parse(window.localStorage.getItem(KEY(address)) || "null"); } catch { saved = null; }
-    setRecord(saved);
-    if (saved) setNode(await readEscrow(saved.owner, saved.seq).catch(() => null));
-    else setNode(undefined);
   }, [address]);
+  const condition = cond?.borrower === address ? cond.condition : null;
+
+  const load = useCallback(async () => {
+    if (!address) {
+      setLocked([]);
+      return;
+    }
+    const all = await escrowsTo(address, market.operator).catch(() => []);
+    setLocked(
+      all
+        .map((e) => ({ ...e, value: valueOf(e.amount, asset) }))
+        .filter((e) => e.value != null),
+    );
+  }, [address, market.operator, asset]);
+
   useEffect(() => {
-    restore();
-    const t = setInterval(restore, 8000);
+    load();
+    const t = setInterval(load, POLL_MS);
     return () => clearInterval(t);
-  }, [restore]);
+  }, [load]);
 
-  const onPosted = useCallback(async ({ code, hash }) => {
-    if (code !== "tesSUCCESS" || !hash || !address) return;
-    const { tx } = await readTx(hash);
-    const rec = { owner: address, seq: tx?.Sequence, tokenId, amount };
-    try { window.localStorage.setItem(KEY(address), JSON.stringify(rec)); } catch { /* ignore */ }
-    setRecord(rec);
-    setNode(await readEscrow(address, tx?.Sequence).catch(() => null));
-    setAmount("");
-  }, [address, tokenId, amount]);
-
-  const held = record && node && node !== null;
-  const canReclaim = held && node.CancelAfter != null && now > node.CancelAfter;
+  const total = locked.reduce((sum, e) => sum + BigInt(e.value), 0n);
+  const valid = isPositiveAmount(asset, amount);
 
   return (
     <Card>
       <CardContent className="space-y-3 p-6">
         <h2 className="font-medium">Secure with collateral (optional)</h2>
-        {held ? (
-          <>
-            <p className="text-sm">Locked <span className="font-semibold tabular-nums">{groupThousands(record.amount)}</span> of {shortId(record.tokenId, 6)} to the desk. Sequence {record.seq}.</p>
-            {canReclaim ? (
-              <TxButton label="Reclaim collateral" variant="outline" explain={explain} disabled={!isConnected}
-                tx={() => ({ TransactionType: "EscrowCancel", Account: address, Owner: address, OfferSequence: Number(record.seq) })}
-                onResult={restore} />
-            ) : (
-              <p className="text-xs text-muted-foreground">The desk holds the release key and can claim it if a secured loan defaults. You can reclaim it after the deadline otherwise.</p>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="text-xs text-muted-foreground">Lock a token as security. Optional, but a desk may offer better terms against collateral.</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5"><Label htmlFor="c-tok">Token</Label><Input id="c-tok" value={tokenId} onChange={(e) => setTokenId(e.target.value.trim())} placeholder="token id" className="font-mono text-xs" /></div>
-              <div className="space-y-1.5"><Label htmlFor="c-amt">Amount</Label><Input id="c-amt" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.trim())} placeholder="0" /></div>
-            </div>
-            <TxButton label="Lock collateral" variant="outline" explain={explain}
-              disabled={!isConnected || !tokenId || !/^\d+$/.test(amount) || !cond}
-              tx={() => ({ TransactionType: "EscrowCreate", Account: address, Amount: { mpt_issuance_id: tokenId, value: amount }, Destination: MARKET.operator, FinishAfter: rippleNow() + 8, CancelAfter: rippleNow() + 7 * 86400, Condition: cond })}
-              onResult={onPosted} />
-          </>
+        <p className="text-xs text-muted-foreground">
+          Lock {sym} to the desk and it raises what you can borrow on this market. The desk holds the
+          release key and can claim it if a loan defaults; you reclaim it after the deadline otherwise.
+        </p>
+
+        {total > 0n && (
+          <p className="text-sm">
+            Locked <span className="font-semibold tabular-nums">{formatAmount(asset, total)} {sym}</span> to the desk.
+          </p>
         )}
-        {record && node === null && (
-          <Alert><AlertTitle>Collateral released</AlertTitle><AlertDescription>Your posted collateral is no longer held.</AlertDescription></Alert>
+
+        {locked.map((e) => (
+          <div key={e.seq} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-3 text-sm">
+            <span className="tabular-nums">{formatAmount(asset, e.value)} {sym}</span>
+            {e.cancelAfter != null && now > Number(e.cancelAfter) ? (
+              <TxButton
+                label="Reclaim"
+                variant="outline"
+                explain={explain}
+                disabled={!isConnected}
+                tx={() => ({ TransactionType: "EscrowCancel", Account: address, Owner: address, OfferSequence: Number(e.seq) })}
+                onResult={load}
+              />
+            ) : (
+              <span className="text-xs text-muted-foreground">held until {new Date((Number(e.cancelAfter) + RIPPLE_EPOCH) * 1000).toLocaleString()}</span>
+            )}
+          </div>
+        ))}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="c-amt">Amount to lock ({sym})</Label>
+          <Input id="c-amt" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.trim())} placeholder="0.00" />
+        </div>
+        <TxButton
+          label={`Lock ${sym} as collateral`}
+          variant="outline"
+          explain={explain}
+          disabled={!isConnected || !valid || !condition}
+          tx={() => ({
+            TransactionType: "EscrowCreate",
+            Account: address,
+            Amount: assetAmount(asset, toBaseUnits(asset, amount)),
+            Destination: market.operator,
+            FinishAfter: rippleNow() + 8,
+            CancelAfter: rippleNow() + LOCK_SECONDS,
+            Condition: condition,
+          })}
+          onResult={({ code }) => {
+            if (code === "tesSUCCESS") setAmount("");
+            load();
+          }}
+        />
+        {!condition && isConnected && (
+          <Alert>
+            <AlertTitle>Desk unavailable</AlertTitle>
+            <AlertDescription>The desk has not issued a release condition, so collateral cannot be locked right now.</AlertDescription>
+          </Alert>
         )}
       </CardContent>
     </Card>

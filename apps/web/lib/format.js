@@ -4,12 +4,37 @@
 // format from strings and BigInt only.
 
 /**
+ * Expand an XRPL numeric string to plain decimal notation.
+ *
+ * High-precision ledger fields (XRPLNumber: DebtMaximum, DebtTotal, CoverAvailable,
+ * PrincipalOutstanding, PeriodicPayment, ...) come back in scientific notation whenever
+ * the ledger feels like it: a broker created with DebtMaximum "1000000000000" reads back
+ * as "1e12". BigInt rejects that outright, and splitting it on "." yields nonsense, so
+ * every money string is expanded here before it is parsed or formatted.
+ */
+export function plainDecimal(value) {
+  const str = String(value ?? "0").trim();
+  const m = /^([+-]?)(\d+)(?:\.(\d*))?[eE]([+-]?\d+)$/.exec(str);
+  if (!m) return str;
+  const [, sign, intPart, fracPart = "", expPart] = m;
+  const exp = Number(expPart);
+  const digits = intPart + fracPart;
+  const point = intPart.length + exp; // where the decimal point lands inside `digits`
+  if (point <= 0) return `${sign}0.${"0".repeat(-point)}${digits}`;
+  if (point >= digits.length) return sign + digits + "0".repeat(point - digits.length);
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
+/** Whole base units of an XRPL amount, truncated. Safe on scientific notation. */
+export const baseUnits = (value) => BigInt(plainDecimal(value).split(".")[0] || "0");
+
+/**
  * Place a decimal point `shift` digits from the right of `value`, which may itself
  * carry a fraction. Returns a plain decimal string with trailing zeros trimmed.
  * Example: formatScaled("20000038.05", 6) -> "20.00003805".
  */
 export function formatScaled(value, shift) {
-  const str = String(value ?? "0").trim();
+  const str = plainDecimal(value);
   const neg = str.startsWith("-");
   const body = neg ? str.slice(1) : str;
   const [intPart = "0", fracPart = ""] = body.split(".");
@@ -45,7 +70,7 @@ export function groupThousands(decStr) {
  * an integer base-unit string. (Mirrors impl/lib roundUpToAssetUnit.)
  */
 export function roundUpToAssetUnit(value) {
-  const str = String(value ?? "0").trim();
+  const str = plainDecimal(value);
   const neg = str.startsWith("-");
   const body = neg ? str.slice(1) : str;
   const [intPart = "0", fracPart = ""] = body.split(".");
@@ -75,6 +100,18 @@ export function formatRatePct(rate, fullScale = 100000, dp = 3) {
   return ratioString(BigInt(rate ?? "0") * 100n, fullScale, dp);
 }
 
+/**
+ * Trim a decimal string to at most `dp` fraction digits, cutting rather than rounding so a
+ * displayed figure is never larger than the real one. For headline stats, where six
+ * decimals of XRP buy nothing but overflow the column.
+ */
+export function trimFraction(dec, dp) {
+  const [whole, frac = ""] = String(dec).split(".");
+  if (!frac || dp <= 0) return whole;
+  const cut = frac.slice(0, dp).replace(/0+$/, "");
+  return cut ? `${whole}.${cut}` : whole;
+}
+
 /** Shorten a hash or ledger id for display: first+last `n` chars. */
 export function shortId(id, n = 6) {
   const s = String(id ?? "");
@@ -88,4 +125,17 @@ const RIPPLE_EPOCH_OFFSET = 946684800;
 export function formatRippleTime(rippleSeconds) {
   if (rippleSeconds == null) return null;
   return new Date((Number(rippleSeconds) + RIPPLE_EPOCH_OFFSET) * 1000).toLocaleString();
+}
+
+/** A span of seconds in words: "1 hour", "30 minutes", "7 days". */
+export function formatDuration(seconds) {
+  const s = Number(seconds ?? 0);
+  const units = [["day", 86400], ["hour", 3600], ["minute", 60]];
+  for (const [name, size] of units) {
+    if (s >= size) {
+      const n = Math.round(s / size);
+      return `${n} ${name}${n === 1 ? "" : "s"}`;
+    }
+  }
+  return `${s} second${s === 1 ? "" : "s"}`;
 }

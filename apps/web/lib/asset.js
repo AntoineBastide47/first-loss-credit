@@ -7,7 +7,7 @@
 // always integer base-unit strings for a given asset; loan accounting fields carry a
 // high-precision fraction. Money is never a JS number: format and parse from strings.
 
-import { formatScaled, groupThousands } from "./format";
+import { formatScaled, groupThousands, trimFraction } from "./format";
 
 /** Base-unit precision: XRP is fixed at 6 (drops); an MPT uses its AssetScale. */
 export function assetScale(asset) {
@@ -22,6 +22,18 @@ export function assetSymbol(asset) {
 /** Base-unit string -> grouped human decimal (e.g. "1500000" XRP -> "1.5"). */
 export function formatAmount(asset, baseUnits) {
   return groupThousands(formatScaled(String(baseUnits ?? "0"), assetScale(asset)));
+}
+
+/**
+ * The same amount at display precision, for headline figures that must fit a narrow
+ * column. Cut, never rounded up, so it never overstates a balance. Pair it with the exact
+ * value in a title attribute wherever the precise number still matters.
+ */
+export function formatAmountShort(asset, baseUnits, dp = 4) {
+  const full = formatAmount(asset, baseUnits);
+  const short = trimFraction(full, dp);
+  // A dust balance must not be reported as nothing, so keep the exact figure instead.
+  return /[1-9]/.test(short) || !/[1-9]/.test(full) ? short : full;
 }
 
 /**

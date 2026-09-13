@@ -5,10 +5,9 @@
 // `asset` says how amounts are denominated (see lib/asset.js): an XRP vault or an
 // MPT-denominated vault. Screens read the selected market's asset and adapt.
 
-// Shared loan product terms. The borrow form autofills these and the server rejects any
-// co-sign whose terms differ, so only PrincipalRequested (in the asset's base units)
-// varies per loan.
-export const LOAN_TERMS = { InterestRate: 100000, PaymentInterval: 3600, PaymentTotal: 6, GracePeriod: 600 };
+// Loan terms are not configured here. The borrower picks a repayment schedule from the
+// menu the desk offers, and the rate is priced per loan from the pool's utilisation, the
+// borrower's record and the term they chose. See lib/credit.js.
 
 const OPERATOR = "rNEBeRwhfnAP5JczQbT2mxnNAY1gYmPUVT";
 
@@ -27,7 +26,6 @@ export const MARKETS = [
     brokerId: "23CB91C3A0286605328E7C9550DFB903D8B8A1B9087120DF371A776E2C8E1EE9",
     operator: OPERATOR,
     seedLoanId: "8638619C7EF6FBF2D6822703F1DE97E67EC539568F7F607590E6240B9ED4B159",
-    loanTerms: LOAN_TERMS,
   },
   {
     id: "usdx",
@@ -38,7 +36,6 @@ export const MARKETS = [
     brokerId: "0A58455DE661D6FBF62FCD86746196226CA369A77E69C91EC5119BB417F56774",
     operator: OPERATOR,
     seedLoanId: "2198C5919E16046C5E758E0B252F00028E4EB018938EB9C3490740FD9A4EE1B0",
-    loanTerms: LOAN_TERMS,
   },
 ];
 

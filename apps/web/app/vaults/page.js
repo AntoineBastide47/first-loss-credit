@@ -12,6 +12,7 @@ import { VaultManager } from "../../components/vaults/VaultManager";
 import { allMarkets, addMarket } from "../../lib/market";
 import { discoverMarkets, lookupVault } from "../../lib/discover";
 import { Input } from "../../components/ui/input";
+import { CopyId } from "../../components/CopyId";
 import { marketVault, marketBroker, utilisation } from "../../lib/product";
 import { brokerLoans, isSettled } from "../../lib/lending-read";
 import { assetSymbol, formatAmount } from "../../lib/asset";
@@ -213,6 +214,8 @@ export default function VaultsPage() {
                         {m.gate ? ` · gated (${m.gate.credentialType})` : " · open"}
                         {row?.broker ? ` · min cover ${minCover.toFixed(1)}%` : ""}
                       </p>
+                      {/* Share this id to open the market on another browser or wallet. */}
+                      <CopyId id={m.vaultId} label="vault" />
                     </div>
                     <div className="flex gap-6 text-sm tabular-nums">
                       <div><p className="text-xs text-muted-foreground">Deposits</p><p className="font-medium">{formatAmount(asset, deposits)} {sym}</p></div>

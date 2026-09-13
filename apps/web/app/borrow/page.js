@@ -14,7 +14,7 @@ import { MARKETS, DESK_OPERATOR } from "../../lib/market";
 import { marketVault, loadMyLoan, saveMyLoan } from "../../lib/product";
 import { readLoan, borrowerLoans, isSettled } from "../../lib/lending-read";
 import { assetSymbol, formatAmount, toBaseUnits, assetAmount } from "../../lib/asset";
-import { roundUpToAssetUnit, formatRippleTime } from "../../lib/format";
+import { roundUpToAssetUnit, formatRippleTime, formatDuration } from "../../lib/format";
 import { getClient } from "../../lib/xrpl-client";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -24,6 +24,10 @@ import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { CheckCircle2, XCircle } from "lucide-react";
 
 const POLL_MS = 6000;
+// The shortest term the desk offers, in 6 payments. Also the first thing the picker shows.
+const DEFAULT_TERM = { termId: "1d", payments: 6 };
+const SELECT_CLASS =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 const big = (v) => BigInt(v ?? "0");
 const rippleNow = () => Math.floor(Date.now() / 1000) - 946684800;
 
@@ -80,6 +84,9 @@ export default function BorrowPage() {
   const [loanId, setLoanId] = useState(null);
   const [loan, setLoan] = useState(null);
   const [amount, setAmount] = useState("");
+  const [quoted, setQuoted] = useState(null);
+  const [termId, setTermId] = useState(DEFAULT_TERM.termId);
+  const [payments, setPayments] = useState(DEFAULT_TERM.payments);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState(null);
   const [justRepaid, setJustRepaid] = useState(false);
@@ -105,6 +112,25 @@ export default function BorrowPage() {
       setLoanId(null);
     }
   }, [market, address]);
+
+  // The desk prices and sizes the loan before you type an amount, so the limit is visible
+  // instead of arriving as a rejection after you have signed. It is only a preview: the
+  // desk re-derives the same decision from the ledger when the signed loan comes back.
+  const refreshQuote = useCallback(async () => {
+    if (!address || market.operator !== DESK_OPERATOR) return;
+    const brokerId = market.brokerId;
+    try {
+      const r = await fetch("/api/quote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ brokerId, borrower: address }),
+      });
+      const d = await r.json();
+      setQuoted({ brokerId, ...d });
+    } catch (e) {
+      setQuoted({ brokerId, error: e instanceof Error ? e.message : String(e) });
+    }
+  }, [address, market.operator, market.brokerId]);
 
   // Your active loan comes from the ledger (loans live in the borrower's owner directory),
   // so it shows up on any device. The remembered id is only a first guess.
@@ -132,7 +158,9 @@ export default function BorrowPage() {
     let on = true;
     const tick = () => {
       marketVault(market).then((v) => on && setVault(v)).catch(() => {});
+      // Utilisation moves the rate, so the quote is refreshed with the pool.
       if (loanId) refreshLoan(loanId);
+      else refreshQuote();
     };
     tick();
     const t = setInterval(tick, POLL_MS);
@@ -140,15 +168,31 @@ export default function BorrowPage() {
       on = false;
       clearInterval(t);
     };
-  }, [market, loanId, refreshLoan]);
+  }, [market, loanId, refreshLoan, refreshQuote]);
 
   // Only the desk can add the LoanSet counterparty signature (its key is server-side).
   const deskOperated = market.operator === DESK_OPERATOR;
   const available = vault ? big(vault.AssetsAvailable) : 0n;
+  // A quote is only this market's quote; switching markets drops it until the new one lands.
+  const thisMarket = quoted?.brokerId === market.brokerId ? quoted : null;
+  const quote = thisMarket?.error ? null : thisMarket;
+  const quoteError = thisMarket?.error || null;
+
+  // The borrower picks how long to repay over and how many payments to make in that time.
+  // Not every pairing is possible (the ledger needs an interval of at least 60s), so the
+  // payment choices come from what the desk actually quoted for the chosen term.
+  const terms = quote?.options ? [...new Map(quote.options.map((o) => [o.termId, o.termLabel])).entries()] : [];
+  const countsForTerm = quote?.options ? quote.options.filter((o) => o.termId === termId) : [];
+  const option =
+    quote?.options?.find((o) => o.termId === termId && o.payments === payments) ||
+    quote?.options?.find((o) => o.termId === termId) ||
+    quote?.options?.[0] ||
+    null;
+  const maxDraw = option ? big(option.maxPrincipal) : 0n;
   const amountValid = (() => {
     try {
       const d = big(toBaseUnits(asset, amount));
-      return d > 0n && d <= available;
+      return d > 0n && d <= maxDraw;
     } catch {
       return false;
     }
@@ -165,7 +209,12 @@ export default function BorrowPage() {
         Counterparty: market.operator,
         LoanBrokerID: market.brokerId,
         PrincipalRequested: toBaseUnits(asset, amount),
-        ...market.loanTerms,
+        // Schedule and rate both come from the option the borrower picked, so the loan is
+        // built from what the desk just quoted rather than from anything this browser
+        // remembers. The desk re-derives its menu and refuses to co-sign a schedule it
+        // does not offer, or a rate under the floor for that schedule.
+        ...option.schedule,
+        InterestRate: option.rate,
       });
       const borrowerBlob = await signLoanSet(walletManager, tx);
       const resp = await fetch("/api/originate", {
@@ -182,6 +231,7 @@ export default function BorrowPage() {
         refreshLoan(data.loanId);
       } else {
         setOutcome({ error: data.error || explain("LoanSet", data.code) || "Could not create the loan." });
+        refreshQuote();
       }
     } catch (e) {
       setOutcome({ error: e instanceof Error ? e.message : String(e) });
@@ -233,15 +283,71 @@ export default function BorrowPage() {
           {!loan && (
             <Card>
               <CardContent className="space-y-4 p-6">
+                {quote && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="term">Repay over</Label>
+                      <select id="term" className={SELECT_CLASS} value={option?.termId ?? termId}
+                        onChange={(e) => setTermId(e.target.value)}>
+                        {terms.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pay-count">In</Label>
+                      <select id="pay-count" className={SELECT_CLASS} value={String(option?.payments ?? payments)}
+                        onChange={(e) => setPayments(Number(e.target.value))}>
+                        {countsForTerm.map((o) => (
+                          <option key={o.payments} value={o.payments}>
+                            {o.payments} payment{o.payments === 1 ? "" : "s"} (every {formatDuration(o.schedule.PaymentInterval)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {option && maxDraw > 0n && (
+                  <div className="space-y-2 rounded-lg border border-border/60 p-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Your rate</span>
+                      <span className="font-semibold tabular-nums">{(option.rate / 1000).toFixed(2)}% APR</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">You can draw up to</span>
+                      <span className="font-semibold tabular-nums">{formatAmount(asset, option.maxPrincipal)} {sym}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {option.payments} payment{option.payments === 1 ? "" : "s"}, one every {formatDuration(option.schedule.PaymentInterval)},
+                      with {formatDuration(option.schedule.GracePeriod)} of grace on each. {option.reason}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {quote.tier}{quote.verified ? ", verified for this market" : ""} · {quote.repaid} loan{quote.repaid === 1 ? "" : "s"} repaid
+                      {big(option.collateral) > 0n ? ` · ${formatAmount(asset, option.collateral)} ${sym} collateral posted` : ""}.
+                      The market charges {(quote.marketRate / 1000).toFixed(2)}% at {(quote.utilBps / 100).toFixed(0)}% utilisation;
+                      the rest is your borrower spread and the premium for a longer loan.
+                    </p>
+                  </div>
+                )}
+                {option && maxDraw === 0n && (
+                  <Alert variant="warning">
+                    <AlertTitle>The desk won’t lend to you here right now</AlertTitle>
+                    <AlertDescription>{option.reason}</AlertDescription>
+                  </Alert>
+                )}
+                {quoteError && (
+                  <Alert variant="warning">
+                    <AlertTitle>No quote</AlertTitle>
+                    <AlertDescription>{quoteError}</AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="amt">Amount to borrow ({sym})</Label>
-                    <span className="text-xs text-muted-foreground">Available: {formatAmount(asset, available)} {sym}</span>
+                    <span className="text-xs text-muted-foreground">Pool has {formatAmount(asset, available)} {sym} idle</span>
                   </div>
                   <Input id="amt" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.trim())} placeholder="0.00" />
                 </div>
-                <p className="text-xs text-muted-foreground">Repaid in 6 installments with interest. You can pay off early any time.</p>
-                <Button className="w-full" disabled={!isConnected || !amountValid || busy || !deskOperated} onClick={handleBorrow}>
+                <p className="text-xs text-muted-foreground">Repaid in installments with interest. You can pay off early any time.</p>
+                <Button className="w-full" disabled={!isConnected || !amountValid || busy || !deskOperated || !option} onClick={handleBorrow}>
                   {busy ? "Awaiting signature…" : "Borrow"}
                 </Button>
                 {!isConnected && <p className="text-xs text-muted-foreground">Connect a wallet to borrow.</p>}
@@ -266,8 +372,9 @@ export default function BorrowPage() {
                 </Alert>
               )}
               <Card>
-                <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-4">
+                <CardContent className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-5">
                   <Stat label="Outstanding" value={`${formatAmount(asset, loan.PrincipalOutstanding)} ${sym}`} />
+                  <Stat label="Rate" value={`${(Number(loan.InterestRate ?? 0) / 1000).toFixed(2)}%`} sub="APR, fixed for this loan" />
                   <Stat label="Total to repay" value={`${formatAmount(asset, roundUpToAssetUnit(loan.TotalValueOutstanding))} ${sym}`} />
                   <Stat label="Next payment" value={`${formatAmount(asset, roundUpToAssetUnit(loan.PeriodicPayment))} ${sym}`} sub={overdue ? "overdue" : `due ${formatRippleTime(loan.NextPaymentDueDate)}`} />
                   <Stat label="Payments left" value={String(remaining)} />
@@ -318,7 +425,7 @@ export default function BorrowPage() {
             </>
           )}
 
-          <CollateralPanel />
+          <CollateralPanel market={market} />
         </div>
   );
 }

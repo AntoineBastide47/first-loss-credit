@@ -6,8 +6,9 @@
 // fields, so treat absent numbers as 0.
 
 import { getClient } from "./xrpl-client";
+import { baseUnits } from "./format";
 
-const big = (v) => BigInt(v ?? "0");
+const big = (v) => baseUnits(v);
 
 /** Vault object (vault_info). Includes vault.shares.OutstandingAmount. */
 export async function readVault(vaultId) {
@@ -51,13 +52,8 @@ export function redeemableAssets(vault, shares) {
   return (big(shares) * net) / sharesTotal;
 }
 
-/**
- * True when a loan is fully repaid. A settled Loan object stays on the ledger with its
- * balances omitted (XRPL drops zero values), while fixed term fields like PeriodicPayment
- * remain. Reading those leftovers as an amount due makes a closed loan look overdue.
- */
-export const isSettled = (loan) =>
-  !!loan && !Number(loan.PaymentRemaining ?? 0) && !Number(loan.PrincipalOutstanding ?? 0);
+// Defined with the credit policy, which needs the same test server-side.
+export { isSettled } from "./credit";
 
 /** Every object of `type` owned by `account`, following markers. Bounded. */
 async function ownedObjects(account, type) {
@@ -112,8 +108,8 @@ export async function readMptoken(account, issuanceId) {
 /** Base-unit value of a transaction Amount field, whatever its shape. */
 const amountValue = (a) => {
   if (a == null) return 0n;
-  if (typeof a === "string") return BigInt(a);
-  if (typeof a === "object" && a.value != null) return BigInt(String(a.value).split(".")[0]);
+  if (typeof a === "string") return baseUnits(a);
+  if (typeof a === "object" && a.value != null) return baseUnits(a.value);
   return 0n;
 };
 
@@ -163,6 +159,22 @@ export async function escrowsTo(owner, destination) {
     // The object's Sequence is the creating transaction's sequence, which is exactly the
     // OfferSequence an EscrowFinish or EscrowCancel needs.
     .map((e) => ({ seq: e.Sequence, amount: e.Amount, cancelAfter: e.CancelAfter, node: e }));
+}
+
+/**
+ * Escrows destined TO `account`, read from its owner directory. An Escrow is indexed in
+ * both the sender's and the destination's directory, so everything offered to the desk can
+ * be found in one read without anyone keeping a list off-ledger.
+ */
+export async function escrowsInto(account) {
+  if (!account) return [];
+  const objs = await ownedObjects(account, "escrow").catch(() => []);
+  return objs
+    .filter((e) => e.Destination === account)
+    .map((e) => ({
+      owner: e.Account, seq: e.Sequence, amount: e.Amount,
+      tag: Number(e.DestinationTag ?? 0), cancelAfter: e.CancelAfter, finishAfter: e.FinishAfter,
+    }));
 }
 
 /** Loans where `account` is the borrower, read from the ledger. Returns [{ id, loan }]. */

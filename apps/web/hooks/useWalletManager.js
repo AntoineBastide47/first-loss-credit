@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useWallet } from "../components/providers/WalletProvider";
 import { DEFAULT_NETWORK } from "../lib/networks";
+import { ignoreBrowserOnlineFlag } from "../lib/online-flag";
 
 // Configuration - Replace with your API keys
 const XAMAN_API_KEY = process.env.NEXT_PUBLIC_XAMAN_API_KEY || "";
@@ -46,6 +47,11 @@ export function useWalletManager() {
     // Dynamic import to avoid SSR issues
     const initWalletManager = async () => {
       try {
+        // Before anything from xrpl-connect loads: WalletConnect refuses to touch its
+        // relay whenever navigator.onLine is false, which the browser gets wrong after
+        // sleep or a VPN change. See lib/online-flag.js.
+        ignoreBrowserOnlineFlag();
+
         const {
           WalletManager,
           XamanAdapter,

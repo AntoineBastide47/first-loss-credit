@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { convertStringToHex, MPTokenIssuanceCreateFlags as MF } from "xrpl";
 import { TxButton, explain } from "../lending";
-import { LOAN_TERMS, DESK_OPERATOR } from "../../lib/market";
+import { DESK_OPERATOR } from "../../lib/market";
 import { readTx, mptIssuanceId } from "../../lib/meta";
 import { toBaseUnits, isPositiveAmount, assetAmount, assetSymbol } from "../../lib/asset";
 import { Card, CardContent } from "../ui/card";
@@ -149,7 +149,6 @@ export function CreateVault({ address, isConnected, onCreated }) {
       operator: created.operator || DESK_OPERATOR,
       creator: address,
       seedLoanId: null,
-      loanTerms: LOAN_TERMS,
       ...(gated && created.domainId ? { domainId: created.domainId, gate: { issuer: address, credentialType: credType } } : {}),
     });
   }, [saved, created, wantCover, coverDone, name, asset, address, gated, credType, onCreated]);

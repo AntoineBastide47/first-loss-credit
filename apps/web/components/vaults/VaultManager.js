@@ -17,6 +17,7 @@ import { assetSymbol, formatAmount, toBaseUnits, isPositiveAmount, assetAmount }
 import { formatRippleTime, shortId } from "../../lib/format";
 import { addMarket, removeMarket } from "../../lib/market";
 import { deskOp, collateralOp } from "../../lib/desk";
+import { CopyId } from "../CopyId";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -133,6 +134,7 @@ export function VaultManager({ market, address, isConnected, onChanged }) {
           <div>
             <h3 className="font-semibold">{market.name}</h3>
             <p className="text-xs text-muted-foreground">{sym} denominated{market.gate ? ` · gated (${market.gate.credentialType})` : " · open"}</p>
+            <CopyId id={market.vaultId} label="vault" />
           </div>
           <span className={`text-sm ${below ? "text-destructive" : "text-emerald-600"}`}>{minimum === 0n ? "No loans" : below ? "Cover below minimum" : "Healthy"}</span>
         </div>
